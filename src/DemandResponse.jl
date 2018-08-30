@@ -1,5 +1,5 @@
 module DemandResponse
 
-# package code goes here
+include("DER/DER.jl")  # Distributed Energy Resources models
 
 end # module
