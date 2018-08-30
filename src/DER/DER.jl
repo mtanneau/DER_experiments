@@ -27,7 +27,6 @@ function addmodel! end
 
 include("fixedLoad.jl")
 include("battery.jl")
-include("thermalLoad.jl")
 include("house.jl")
 
 end  # module

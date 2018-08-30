@@ -1,1 +1,6 @@
 julia 0.6
+
+MathProgBase
+JuMP 0.18
+
+Linda
