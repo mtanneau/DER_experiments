@@ -1,6 +1,6 @@
 # DemandResponse
 
-[![Build Status](https://travis-ci.org/mtanneau/DemandResponse.jl.svg?branch=master)](https://travis-ci.org/mtanneau/DemandResponse.jl)
+[![Build Status](https://travis-ci.com/mtanneau/DemandResponse.jl.svg?branch=master)](https://travis-ci.com/mtanneau/DemandResponse.jl)
 
 [![Coverage Status](https://coveralls.io/repos/mtanneau/DemandResponse.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/mtanneau/DemandResponse.jl?branch=master)
 
