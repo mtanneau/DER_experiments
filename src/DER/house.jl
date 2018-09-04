@@ -1,3 +1,17 @@
+"""
+    House
+
+Data stucture that represents a house and its appliances.
+
+# Attributes
+- `index`: Index of that house
+- `num_timesteps`: Number of time-steps in the time horizon
+- `dt`: Duration of one time-step, in hours
+- `netload_min`: House's minimum net load, for each time-step
+- `netload_max`:
+- `price`: Electricity price, in $/kWh
+- `appliances`: List of appliances in that house
+"""
 mutable struct House <: Resource
     index::Int
 
@@ -11,6 +25,35 @@ mutable struct House <: Resource
     appliances::Vector{Resource}
 end
 
+function House(;
+    index::Integer=0,
+    T::Integer=0,
+    dt::Float64=1.0,
+    netload_min::Vector{Float64}=Vector{Float64}(),
+    netload_max::Vector{Float64}=Vector{Float64}(),
+    price::Vector{Float64}=Vector{Float64}(),
+    appliances::Vector{Resource}=Vector{Resource}()
+)
+
+    # Dimension checks
+    T == size(netload_min, 1) || throw(DimensionMismatch("Invalid netload_min"))
+    T == size(netload_max, 1) || throw(DimensionMismatch("Invalid netload_max"))
+    T == size(price, 1) || throw(DimensionMismatch("Invalid price"))
+    0.0 < dt || throw(DomainError("dt must be positive"))
+
+    House(
+        index, T, dt,
+        copy(netload_min), copy(netload_max), copy(price),
+        appliances
+    )
+end
+
+"""
+    LindaOracleMIP(house, solver)
+
+Construct a MIP model of the House, and casts it as a `LindaOracleMIP`.
+The MIP model is built using JuMP, but only raw data is exported.
+"""
 function LindaOracleMIP(h::House, solver::MPB.AbstractMathProgSolver)
     
     T = h.num_timesteps
