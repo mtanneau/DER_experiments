@@ -31,62 +31,81 @@ Construct a MIP oracle that schedules the Battery.
 """
 function LindaOracleMIP(l::FixedLoad, solver::MPB.AbstractMathProgSolver)
     T = l.num_timesteps
-    # Construct model
-    m = JuMP.Model(solver=solver)
 
-    # add variables
-    JuMP.@variable(m, p[t=1:T]==l.load[t])  # net power
-    
-    # set objective
-    # (minimize total cost of purchased energy)
-    JuMP.@objective(m, :Min, 0.0)
+    var2idx = Dict{Tuple{Symbol, Int, Symbol, Int}, Int}()
+    row2idx = Dict{Tuple{Symbol, Int, Symbol, Int}, Int}()
+    obj = Vector{Float64}(undef, 0)
+    varlb = Vector{Float64}(undef, 0)
+    varub = Vector{Float64}(undef, 0)
+    vartypes = Vector{Symbol}(undef, 0)
+    rowlb = Vector{Float64}(undef, 0)
+    rowub = Vector{Float64}(undef, 0)
+    constrI = Vector{Int}(undef, 0)
+    constrJ = Vector{Int}(undef, 0)
+    constrV = Vector{Float64}(undef, 0)
 
-    JuMP.build(m)
-    problem = JuMP.internalmodel(m)
+    # Update model
+    addmodel!(l,
+        var2idx, obj, varlb, varub, vartypes,
+        row2idx, rowlb, rowub, constrI, constrJ, constrV,
+        Vector{Int}(undef, 0)
+    )
 
-    A_link = spzeros(2*bat.num_timesteps, MPB.numvar(problem))
-    for i in 1:bat.num_timesteps
-        A_link[i, i] = 1.0
-        A_link[bat.num_timesteps+i, i] = 1.0
+    numvar = length(var2idx)
+    numcon = length(row2idx)
+
+    A_link = spzeros(2*T, numvar)
+    for t in 1:T
+        A_link[t, var2idx[(:fixed, l.index, :pnet, t)]] = 1.0
+        A_link[T+t, var2idx[(:fixed, l.index, :pnet, t)]] = 1.0
     end
 
     return LindaOracleMIP(
-        bat.index,
-        MPB.getobj(problem),
+        l.index,
+        obj,
         A_link,
-        MPB.getconstrmatrix(problem),
-        MPB.getconstrLB(problem),
-        MPB.getconstrUB(problem),
-        MPB.getvartype(problem),
-        MPB.getvarLB(problem),
-        MPB.getvarUB(problem),
+        sparse(constrI, constrJ, constrV, numcon, numvar),
+        rowlb,
+        rowub,
+        vartypes,
+        varlb,
+        varub,
         solver
     )
 end
 
-"""
-    addmodel!(l::FixedLoad, m::JuMP.Model, constr)
 
-Add battery to existing model.
-"""
-function addmodel!(l::FixedLoad, m::JuMP.Model, constr)
+function addmodel!(
+    l::FixedLoad,
+    var2idx, obj, varlb, varub, vartypes,
+    row2idx, rowlb, rowub, constrI, constrJ, constrV,
+    constr_
+)
     T = l.num_timesteps
+    T_ = length(constr_)
+    @assert T_ == 0 || T_ == T
 
-    #========================================
-        Local variables
-    ========================================#
-    # Net power, appears in linking constraints with coefficient `-1.0`
-    p = [
-        JuMP.@variable(
-            m,
-            objective=0.0,
-            inconstraints=[constr[t]],
-            coefficients=[-1.0],
-            lowerbound=l.load[t],
-            upperbound=l.load[t]
-        )
-        for t in 1:T
-    ]
+    # Create local variables
+    for t in 1:T
+        var2idx[(:fixed, l.index, :pnet, t)] = length(var2idx)+1  # net load
+    end
+    append!(obj, zeros(T))
+    append!(varlb, l.load)
+    append!(varub, l.load)
+    append!(vartypes, [:Cont for t in 1:T])
 
-    return
+    # Add local variables to existing linking constraints
+    if T_ > 0
+        append!(constrI, constr_)
+        append!(constrJ, [var2idx[(:fixed, l.index, :pnet, t)] for t in 1:T])
+        append!(constrV, -ones(T))
+    end
+
+    # Create local constraints
+    # (None here)
+
+    # Add sub-resources to current model
+    # (none here)
+
+    return nothing
 end

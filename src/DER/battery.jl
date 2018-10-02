@@ -61,132 +61,271 @@ end
 Construct a MIP oracle that schedules the Battery.
 """
 function LindaOracleMIP(bat::Battery, solver::MPB.AbstractMathProgSolver)
+
     T = bat.num_timesteps
-    # Construct model
-    m = JuMP.Model(solver=solver)
 
-    # add variables
-    JuMP.@variable(m, p[1:T])  # net power
-    JuMP.@variable(m, pchg[1:T] >= 0.0)  # charging power
-    JuMP.@variable(m, pdis[1:T] >= 0.0)  # discharging power
-    JuMP.@variable(m, bat.soc_min[t] <= soc[t=1:T] <= bat.soc_max[t])  # state-of-charge
-    JuMP.@variable(m, uchg[1:T], Bin)  # charging indicator
-    JuMP.@variable(m, udis[1:T], Bin)  # discharging indicator
-    
-    # set constraints
-    for t in 1:T
-        # net power balance
-        JuMP.@constraint(m, p[t] == pchg[t] - pdis[t])
+    var2idx = Dict{Tuple{Symbol, Int, Symbol, Int}, Int}()
+    row2idx = Dict{Tuple{Symbol, Int, Symbol, Int}, Int}()
+    obj = Vector{Float64}(undef, 0)
+    varlb = Vector{Float64}(undef, 0)
+    varub = Vector{Float64}(undef, 0)
+    vartypes = Vector{Symbol}(undef, 0)
+    rowlb = Vector{Float64}(undef, 0)
+    rowub = Vector{Float64}(undef, 0)
+    constrI = Vector{Int}(undef, 0)
+    constrJ = Vector{Int}(undef, 0)
+    constrV = Vector{Float64}(undef, 0)
 
-        # charging power
-        JuMP.@constraint(m, uchg[t] * bat.charge_pwr_min <= pchg[t])  # min
-        JuMP.@constraint(m, pchg[t] <= uchg[t]*bat.charge_pwr_max)  # max
-
-        # discharging power
-        JuMP.@constraint(m, udis[t] * bat.discharge_pwr_min <= pdis[t])  # min
-        JuMP.@constraint(m, pdis[t] <= udis[t]*bat.discharge_pwr_max)  # max
-
-        # can't charge and discharge simultaneously
-        JuMP.@constraint(m, uchg[t] + udis[t] <= 1)
-    end
-    
-    # energy conservation at time t=0
-    JuMP.@constraint(
-        m,
-        soc[1] == bat.charge_eff * pchg[1] - (1.0 / bat.discharge_eff) * pdis[1]
+    # Update model
+    addmodel!(bat,
+        var2idx, obj, varlb, varub, vartypes,
+        row2idx, rowlb, rowub, constrI, constrJ, constrV,
+        Vector{Int}(undef, 0)
     )
-    for t in 2:T
-        # energy conservation at time t>0
-        JuMP.@constraint(
-            m,
-            soc[t] - soc[t-1] == bat.charge_eff * pchg[t] - (1.0 / bat.discharge_eff) * pdis[t]
-        )
-    end
+    
+    numvar = length(var2idx)
+    numcon = length(row2idx)
 
-    JuMP.build(m)
-    problem = JuMP.internalmodel(m)
-
-
-    A_link = spzeros(2*bat.num_timesteps, MPB.numvar(problem))
-    for i in 1:bat.num_timesteps
-        A_link[i, i] = 1.0
-        A_link[bat.num_timesteps+i, i] = 1.0
+    A_link = spzeros(2*T, numvar)
+    for t in 1:T
+        A_link[t, var2idx[(:bat, bat.index, :pnet, t)]] = 1.0
+        A_link[T+t, var2idx[(:bat, bat.index, :pnet, t)]] = 1.0
     end
 
     return LindaOracleMIP(
         bat.index,
-        MPB.getobj(problem),
+        obj,
         A_link,
-        MPB.getconstrmatrix(problem),
-        MPB.getconstrLB(problem),
-        MPB.getconstrUB(problem),
-        MPB.getvartype(problem),
-        MPB.getvarLB(problem),
-        MPB.getvarUB(problem),
+        sparse(constrI, constrJ, constrV, numcon, numvar),
+        rowlb,
+        rowub,
+        vartypes,
+        varlb,
+        varub,
         solver
     )
+
 end
 
-"""
-    addmodel!(bat::Battery, m::JuMP.Model, constr)
-
-Add battery to existing model.
-"""
-function addmodel!(bat::Battery, m::JuMP.Model, constr)
+function addmodel!(
+    bat::Battery,
+    var2idx, obj, varlb, varub, vartypes,
+    row2idx, rowlb, rowub, constrI, constrJ, constrV,
+    constr_
+)
     T = bat.num_timesteps
+    T_ = length(constr_)
+    @assert T_ == 0 || T_ == T
 
-    #========================================
-        Local variables
-    ========================================#
-    # Net power, appears in linking constraints with coefficient `-1.0`
-    p = [
-        JuMP.@variable(
-            m,
-            objective=0.0,
-            inconstraints=[constr[t]],
-            coefficients=[-1.0]
-        )
-        for t in 1:T
-    ]
-    # Other local variables
-    pchg = JuMP.@variable(m, [1:T], lowerbound = 0.0)  # charging power
-    pdis = JuMP.@variable(m, [1:T], lowerbound = 0.0)  # discharging power
-    soc = JuMP.@variable(m, [t=1:T], lowerbound=bat.soc_min[t], upperbound=bat.soc_max[t])  # state-of-charge
-    uchg = JuMP.@variable(m, [1:T], Bin)  # charging indicator
-    udis = JuMP.@variable(m, [1:T], Bin)  # discharging indicator
-    
+    # ==========================================
+    #    Add local variables
+    # ==========================================
+    numvar = 6*T
+    append!(varlb, zeros(numvar))
+    append!(varub, zeros(numvar))
+    append!(obj, zeros(numvar))
+    append!(vartypes, Vector{Symbol}(undef, numvar))
 
-    #========================================
-        Local constraints
-    ========================================#
     for t in 1:T
-        # net power balance
-        JuMP.@constraint(m, p[t] == pchg[t] - pdis[t])
+        # net load
+        var2idx[(:bat, bat.index, :pnet, t)] = length(var2idx)+1
+        varlb[var2idx[(:bat, bat.index, :pnet, t)]] = -Inf
+        varub[var2idx[(:bat, bat.index, :pnet, t)]] = Inf
+        vartypes[var2idx[(:bat, bat.index, :pnet, t)]] = :Cont
 
-        # charging power
-        JuMP.@constraint(m, uchg[t] * bat.charge_pwr_min <= pchg[t])  # min
-        JuMP.@constraint(m, pchg[t] <= uchg[t]*bat.charge_pwr_max)  # max
+        # Charging power
+        var2idx[(:bat, bat.index, :pchg, t)] = length(var2idx)+1
+        varlb[var2idx[(:bat, bat.index, :pchg, t)]] = 0.0
+        varub[var2idx[(:bat, bat.index, :pchg, t)]] = Inf
+        vartypes[var2idx[(:bat, bat.index, :pchg, t)]] = :Cont
+        
+        # Discharging power
+        var2idx[(:bat, bat.index, :pdis, t)] = length(var2idx)+1
+        varlb[var2idx[(:bat, bat.index, :pdis, t)]] = 0.0
+        varub[var2idx[(:bat, bat.index, :pdis, t)]] = Inf
+        vartypes[var2idx[(:bat, bat.index, :pdis, t)]] = :Cont
 
-        # discharging power
-        JuMP.@constraint(m, udis[t] * bat.discharge_pwr_min <= pdis[t])  # min
-        JuMP.@constraint(m, pdis[t] <= udis[t]*bat.discharge_pwr_max)  # max
+        # State of charge
+        var2idx[(:bat, bat.index, :soc, t)] = length(var2idx)+1
+        varlb[var2idx[(:bat, bat.index, :soc, t)]] = bat.soc_min[t]
+        varub[var2idx[(:bat, bat.index, :soc, t)]] = bat.soc_max[t]
+        vartypes[var2idx[(:bat, bat.index, :soc, t)]] = :Cont
 
-        # can't charge and discharge simultaneously
-        JuMP.@constraint(m, uchg[t] + udis[t] <= 1)
+        # Charge indicator
+        var2idx[(:bat, bat.index, :uchg, t)] = length(var2idx)+1
+        varlb[var2idx[(:bat, bat.index, :uchg, t)]] = 0.0
+        varub[var2idx[(:bat, bat.index, :uchg, t)]] = 1.0
+        vartypes[var2idx[(:bat, bat.index, :uchg, t)]] = :Bin
+
+        # Discharge indicator
+        var2idx[(:bat, bat.index, :udis, t)] = length(var2idx)+1
+        varlb[var2idx[(:bat, bat.index, :udis, t)]] = 0.0
+        varub[var2idx[(:bat, bat.index, :udis, t)]] = 1.0
+        vartypes[var2idx[(:bat, bat.index, :udis, t)]] = :Bin
     end
-    
-    # energy conservation at time t=0
-    JuMP.@constraint(
-        m,
-        soc[1] == bat.charge_eff * pchg[1] - (1.0 / bat.discharge_eff) * pdis[1]
+
+    # ==========================================
+    #    II. Update linking constraints
+    # ==========================================
+    if T_ > 0
+        append!(constrI, constr_)
+        append!(constrJ, [var2idx[(:bat, bat.index, :pnet, t)] for t in 1:T])
+        append!(constrV, -ones(T))
+    end
+
+    # ==========================================
+    #    III. Add local constraints
+    # ==========================================
+    numcon = 7*T
+    append!(rowlb, zeros(numcon))
+    append!(rowub, zeros(numcon))
+
+    for t in 1:T
+        # Net power
+        #   `p[t] - pchg[t] + pdis[t] = 0`
+        row2idx[(:bat, bat.index, :netload, t)] = length(row2idx)+1
+        rowlb[row2idx[(:bat, bat.index, :netload, t)]] = 0.0
+        rowub[row2idx[(:bat, bat.index, :netload, t)]] = 0.0
+        i = row2idx[(:bat, bat.index, :netload, t)]
+        append!(constrI, [i, i, i])
+        append!(constrJ,
+            [
+                var2idx[(:bat, bat.index, :pnet, t)],
+                var2idx[(:bat, bat.index, :pchg, t)],
+                var2idx[(:bat, bat.index, :pdis, t)]
+            ]
+        )
+        append!(constrV, [1.0, -1.0, 1.0])
+
+        # Charging power
+        #   `pchg[t] >= uchg[t] * P_chg_min`
+        #   `pchg[t] <= uchg[t] * P_chg_max`
+        row2idx[(:bat, bat.index, :pchg_min, t)] = length(row2idx)+1
+        rowlb[row2idx[(:bat, bat.index, :pchg_min, t)]] = 0.0
+        rowub[row2idx[(:bat, bat.index, :pchg_min, t)]] = Inf
+        i = row2idx[(:bat, bat.index, :pchg_min, t)]
+        append!(constrI, [i, i])
+        append!(constrJ,
+            [
+                var2idx[(:bat, bat.index, :pchg, t)],
+                var2idx[(:bat, bat.index, :uchg, t)]
+            ]
+        )
+        append!(constrV, [1.0, -bat.charge_pwr_min])
+
+        row2idx[(:bat, bat.index, :pchg_max, t)] = length(row2idx)+1
+        rowlb[row2idx[(:bat, bat.index, :pchg_max, t)]] = -Inf
+        rowub[row2idx[(:bat, bat.index, :pchg_max, t)]] = 0.0
+        i = row2idx[(:bat, bat.index, :pchg_max, t)]
+        append!(constrI, [i, i])
+        append!(constrJ,
+            [
+                var2idx[(:bat, bat.index, :pchg, t)],
+                var2idx[(:bat, bat.index, :uchg, t)]
+            ]
+        )
+        append!(constrV, [1.0, -bat.charge_pwr_max])
+        
+        # Discharging power
+        #   `pdis[t] >= udis[t] * P_dis_min`
+        #   `pdis[t] <= udis[t] * P_dis_max`
+        row2idx[(:bat, bat.index, :pdis_min, t)] = length(row2idx)+1
+        rowlb[row2idx[(:bat, bat.index, :pdis_min, t)]] = 0.0
+        rowub[row2idx[(:bat, bat.index, :pdis_min, t)]] = Inf
+        i = row2idx[(:bat, bat.index, :pdis_min, t)]
+        append!(constrI, [i, i])
+        append!(constrJ,
+            [
+                var2idx[(:bat, bat.index, :pdis, t)],
+                var2idx[(:bat, bat.index, :udis, t)]
+            ]
+        )
+        append!(constrV, [1.0, -bat.discharge_pwr_min])
+
+        row2idx[(:bat, bat.index, :pdis_max, t)] = length(row2idx)+1
+        rowlb[row2idx[(:bat, bat.index, :pdis_max, t)]] = -Inf
+        rowub[row2idx[(:bat, bat.index, :pdis_max, t)]] = 0.0
+        i = row2idx[(:bat, bat.index, :pdis_max, t)]
+        append!(constrI, [i, i])
+        append!(constrJ,
+            [
+                var2idx[(:bat, bat.index, :pdis, t)],
+                var2idx[(:bat, bat.index, :udis, t)]
+            ]
+        )
+        append!(constrV, [1.0, -bat.discharge_pwr_max])
+
+
+        # Charge-discharge
+        #   `uchg[t] + udis[t] <= 1.0`
+        row2idx[(:bat, bat.index, :chgdis, t)] = length(row2idx)+1
+        rowlb[row2idx[(:bat, bat.index, :chgdis, t)]] = -Inf
+        rowub[row2idx[(:bat, bat.index, :chgdis, t)]] = 1.0
+        i = row2idx[(:bat, bat.index, :chgdis, t)]
+        append!(constrI, [i, i])
+        append!(constrJ,
+            [
+                var2idx[(:bat, bat.index, :uchg, t)],
+                var2idx[(:bat, bat.index, :udis, t)]
+            ]
+        )
+        append!(constrV, [1.0, 1.0])
+        
+    end
+
+    # Energy conservation at time t=1
+    #   soc[1] - soc_init = bat.charge_eff * pchg[1] - (1.0 / bat.discharge_eff) * pdis[1]
+    row2idx[(:bat, bat.index, :soc, 1)] = length(row2idx)+1
+    rowlb[row2idx[(:bat, bat.index, :soc, 1)]] = bat.soc_init
+    rowub[row2idx[(:bat, bat.index, :soc, 1)]] = bat.soc_init
+    i = row2idx[(:bat, bat.index, :soc, 1)]
+    append!(constrI, [i, i, i])
+    append!(constrJ,
+        [
+            var2idx[(:bat, bat.index, :soc, 1)],
+            var2idx[(:bat, bat.index, :pchg, 1)],
+            var2idx[(:bat, bat.index, :pdis, 1)]
+        ]
     )
+    append!(constrV,
+        [
+            1.0,
+            -bat.charge_eff,
+            1.0 / bat.discharge_eff
+        ]
+    )
+
+    # Energy conservation at time t>1
+    #   soc[t] - soc[t-1] == bat.charge_eff * pchg[t] - (1.0 / bat.discharge_eff) * pdis[t]
     for t in 2:T
-        # energy conservation at time t>0
-        JuMP.@constraint(
-            m,
-            soc[t] - soc[t-1] == bat.charge_eff * pchg[t] - (1.0 / bat.discharge_eff) * pdis[t]
+        row2idx[(:bat, bat.index, :soc, t)] = length(row2idx)+1
+        rowlb[row2idx[(:bat, bat.index, :soc, t)]] = 0.0
+        rowub[row2idx[(:bat, bat.index, :soc, t)]] = 0.0
+        i = row2idx[(:bat, bat.index, :soc, t)]
+        append!(constrI, [i, i, i, i])
+        append!(constrJ,
+            [
+                var2idx[(:bat, bat.index, :soc, t)],
+                var2idx[(:bat, bat.index, :soc, t-1)],
+                var2idx[(:bat, bat.index, :pchg, t)],
+                var2idx[(:bat, bat.index, :pdis, t)]
+            ]
+        )
+        append!(constrV,
+            [
+                1.0,
+                -1.0,
+                -bat.charge_eff,
+                1.0 / bat.discharge_eff
+            ]
         )
     end
 
-    return
+    # ==========================================
+    #    Add sub-resources to current model
+    # ==========================================
+
+    # (none here)
+
+    return nothing
 end
