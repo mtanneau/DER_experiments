@@ -30,6 +30,7 @@ function addmodel! end
 
 
 include("fixedLoad.jl")
+include("curtailableLoad.jl")
 include("battery.jl")
 include("house.jl")
 
