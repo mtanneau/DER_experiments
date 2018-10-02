@@ -85,7 +85,9 @@ function addmodel!(
     T_ = length(constr_)
     @assert T_ == 0 || T_ == T
 
-    # Create local variables
+    # ==========================================
+    #    I. Add local variables
+    # ==========================================
     for t in 1:T
         var2idx[(:fixed, l.index, :pnet, t)] = length(var2idx)+1  # net load
     end
@@ -94,18 +96,24 @@ function addmodel!(
     append!(varub, l.load)
     append!(vartypes, [:Cont for t in 1:T])
 
-    # Add local variables to existing linking constraints
+    # ==========================================
+    #    II. Update linking constraints
+    # ==========================================
     if T_ > 0
         append!(constrI, constr_)
         append!(constrJ, [var2idx[(:fixed, l.index, :pnet, t)] for t in 1:T])
         append!(constrV, -ones(T))
     end
 
-    # Create local constraints
+    # ==========================================
+    #    III. Add local constraints
+    # ==========================================
     # (None here)
 
-    # Add sub-resources to current model
-    # (none here)
+    # ==========================================
+    #    IV. Add sub-resources to current model
+    # ==========================================
+    # (None here)
 
     return nothing
 end

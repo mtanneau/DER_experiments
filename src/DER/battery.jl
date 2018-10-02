@@ -118,7 +118,7 @@ function addmodel!(
     @assert T_ == 0 || T_ == T
 
     # ==========================================
-    #    Add local variables
+    #    I. Add local variables
     # ==========================================
     numvar = 6*T
     append!(varlb, zeros(numvar))
@@ -322,10 +322,9 @@ function addmodel!(
     end
 
     # ==========================================
-    #    Add sub-resources to current model
+    #    IV. Add sub-resources to current model
     # ==========================================
-
-    # (none here)
+    # (None here)
 
     return nothing
 end
