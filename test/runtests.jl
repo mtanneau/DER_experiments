@@ -1,12 +1,17 @@
+using LinearAlgebra
+using Random
+using Printf
+using Test
+
+
 using DemandResponse
 const DR = DemandResponse
 
-@static if VERSION < v"0.7.0-DEV.2005"
-    using Base.Test
-else
-    using Test
-end
+import MathProgBase
+const MPB = MathProgBase
 
+import Linda
+import GLPKMathProgInterface: GLPKSolverMIP
 
 
 # write your own tests here
