@@ -3,16 +3,14 @@ using Random
 using Printf
 using Test
 
-
 using DemandResponse
 const DR = DemandResponse
 
 import MathProgBase
 const MPB = MathProgBase
 
+import CPLEX:CplexSolver
 import Linda
-import GLPKMathProgInterface: GLPKSolverMIP
-
 
 # write your own tests here
 const testdir = dirname(@__FILE__)

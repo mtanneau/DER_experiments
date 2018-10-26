@@ -1,7 +1,4 @@
 # Build an operational model of a house with each appliance
-import Cbc:CbcSolver
-import CPLEX:CplexSolver
-import Linda
 
 T = 2  # two time-periods
 p = [0.0, 1.0]  # Price vector
