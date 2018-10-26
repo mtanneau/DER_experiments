@@ -71,7 +71,7 @@ $$
 
 ## Parameters
 * $P^{min}_{t}$: minimum power at time $t$
-* $P^{max}_{t}$: maximum poewr at time $t$
+* $P^{max}_{t}$: maximum power at time $t$
 * $E^{min}$: minimum energy requirement over horizon
 * $E^{max}$: maximum energy requirement over horizon
 
@@ -82,7 +82,6 @@ $$
 ## Model
 
 $$
-    \Large
     \begin{array}{ccl}
         \displaystyle \min_{p, u} & 0\\
         s.t. 
@@ -96,13 +95,22 @@ $$
 # Battery
 
 ## Parameters
+* $P^{chg, min}_{t}$: Minimum charging power at time $t$
+* $P^{chg, max}_{t}$: Minimum charging power at time $t$
+* $P^{dis, min}_{t}$: Minimum discharging power at time $t$
+* $P^{dis, max}_{t}$: Minimum discharging power at time $t$
+* $E^{min, max}$: Minimum and maximum state-of-charge of the battery
+* $η^{chg, dis}$: Charging/Discharging efficiencies of the battery
 
 ## Variables
+* $p_{t}$: Net load at time $t$
+* $p^{chg}_{t}, p^{dis}_{t}$: Charging/Discharging power at time $t$
+* $e_{t}$: State-of-charge at time $t$
+* $u^{chg}_{t}, u^{dis}_{t}$: Charging/Discharging indicator at time $t$
 
 ## Model
 
 $$
-    \Large
     \begin{array}{ccl}
         \displaystyle \min_{p, u, e} & 0\\
         s.t.
