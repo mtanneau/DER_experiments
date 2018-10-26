@@ -1,6 +1,10 @@
 module DER
 
-import JuMP
+using LinearAlgebra
+using Random
+using SparseArrays
+
+# import JuMP
 
 import MathProgBase
 const MPB = MathProgBase
@@ -26,8 +30,8 @@ function addmodel! end
 
 
 include("fixedLoad.jl")
+include("curtailableLoad.jl")
 include("battery.jl")
-include("thermalLoad.jl")
 include("house.jl")
 
 end  # module
