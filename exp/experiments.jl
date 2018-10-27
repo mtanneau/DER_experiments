@@ -138,15 +138,36 @@ function generate_RMP_data(
     return A, obj, rowlb, rowub, collb, colub
 end
 
+"""
+    generate_resources()
 
+# Arguments
+- `num_der`: The number of DERs
+- `T`: The number of time-steps
+- `devices_rates`: Ownership rates of each device
+- `load_norm`: Normalized reference load profile
+- `PV_norm`: Normalized PV output profile
+- `price`: Electricity price, in dollar per kW.h.
+"""
 function generate_resources(
     num_der, T,
     devices_rates::Dict{Symbol, Float64},
     load_norm::Vector,
     PV_norm::Vector,
-    p_tou::Vector;
+    price::Vector;
     seed=0
 )
+    # Sanity checks
+    T == length(load_norm) || throw(DimensionMismatch(
+        "T=$T but load_norm has length $(length(load_norm))"
+    ))
+    T == length(PV_norm) || throw(DimensionMismatch(
+        "T=$T but load_norm has length $(length(PV_norm))"
+    ))
+    T == length(price) || throw(DimensionMismatch(
+        "T=$T but load_norm has length $(length(price))"
+    ))
+
     Random.seed!(seed)
     resources = Vector{DR.DER.Resource}(undef, num_der)
     
@@ -190,7 +211,7 @@ function generate_resources(
             dt=1.0,
             netload_min = zeros(T),
             netload_max = 10.0 .* ones(T),
-            price=p_tou,
+            price=price,
             appliances=[b, l, pv]
         )
         resources[i] = h
