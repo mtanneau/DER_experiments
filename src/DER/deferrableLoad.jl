@@ -191,7 +191,7 @@ function addmodel!(
     for k in 1:l.num_cycles
         # create constraint for cycle k
         i = length(row2idx) + 1
-        row2idx[:defer, l.index, :cons, 10000*k + t] = i
+        row2idx[:defer, l.index, :cycle, k] = i
         
         L = l.cycle_end[k] - l.cycle_begin[k] + 1  # length of the cycle
         append!(constrI, fill(i, L))

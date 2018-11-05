@@ -15,9 +15,9 @@ function CurtailableLoad(;
     index::Integer=0,
     T::Integer=0,
     dt::Float64=1.0,
-    load::AbstractVector{T1}=[0.0],
-    binaryFlag::Bool
-) where{T1<:Real}
+    load::Vector{Float64}=Float64[],
+    binaryFlag::Bool=true
+)
 
     # Dimension checks
     T == size(load, 1) || throw(DimensionMismatch("Invalid load dimension"))
@@ -85,7 +85,7 @@ function addmodel!(
 )
     T = l.num_timesteps
     T_ = length(constr_)
-    @assert T_ == 0 || T_ == T
+    (T_ == 0) || (T_ == T) || error("T=$T but $T_ linking constraints in input")
 
     
     # ==========================================
