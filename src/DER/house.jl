@@ -12,7 +12,7 @@ Data stucture that represents a house and its appliances.
 - `price`: Electricity price, in dollar per kWh
 - `appliances`: List of appliances in that house
 """
-mutable struct House <: Resource
+struct House <: Resource
     index::Int
 
     num_timesteps::Int

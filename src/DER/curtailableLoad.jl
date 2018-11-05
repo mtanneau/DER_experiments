@@ -3,7 +3,7 @@
 
 Curtailable load
 """
-mutable struct CurtailableLoad <: Resource
+struct CurtailableLoad <: Resource
     index::Int           # Index of the resource
     num_timesteps::Int   # Number of time-steps in the battery's operation
 
@@ -15,9 +15,9 @@ function CurtailableLoad(;
     index::Integer=0,
     T::Integer=0,
     dt::Float64=1.0,
-    load::AbstractVector{T1}=[0.0],
-    binaryFlag::Bool
-) where{T1<:Real}
+    load::Vector{Float64}=Float64[],
+    binaryFlag::Bool=true
+)
 
     # Dimension checks
     T == size(load, 1) || throw(DimensionMismatch("Invalid load dimension"))
@@ -85,7 +85,7 @@ function addmodel!(
 )
     T = l.num_timesteps
     T_ = length(constr_)
-    @assert T_ == 0 || T_ == T
+    (T_ == 0) || (T_ == T) || error("T=$T but $T_ linking constraints in input")
 
     
     # ==========================================
@@ -98,7 +98,7 @@ function addmodel!(
     append!(obj, zeros(T))
     append!(varlb, fill(-Inf, T))
     append!(varub, fill(Inf, T))
-    append!(vartypes, [:Cont for t in 1:T])
+    append!(vartypes, fill(:Cont, T))
 
     # Curtailment indicator
     for t in 1:T
@@ -108,9 +108,9 @@ function addmodel!(
     append!(varlb, zeros(T))
     append!(varub, ones(T))
     if l.binaryFlag
-        append!(vartypes, [:Bin for t in 1:T])
+        append!(vartypes, fill(:Bin, T))
     else
-        append!(vartypes, [:Cont for t in 1:T])
+        append!(vartypes, fill(:Cont, T))
     end
 
 

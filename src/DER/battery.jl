@@ -1,7 +1,7 @@
 """
     Battery
 """
-mutable struct Battery <: Resource
+struct Battery <: Resource
     index::Int           # Index of the resource
     num_timesteps::Int   # Number of time-steps in the battery's operation
     dt::Float64          # Length of each time-step
