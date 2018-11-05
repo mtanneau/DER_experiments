@@ -98,7 +98,7 @@ function addmodel!(
     append!(obj, zeros(T))
     append!(varlb, fill(-Inf, T))
     append!(varub, fill(Inf, T))
-    append!(vartypes, [:Cont for t in 1:T])
+    append!(vartypes, fill(:Cont, T))
 
     # Curtailment indicator
     for t in 1:T
@@ -108,9 +108,9 @@ function addmodel!(
     append!(varlb, zeros(T))
     append!(varub, ones(T))
     if l.binaryFlag
-        append!(vartypes, [:Bin for t in 1:T])
+        append!(vartypes, fill(:Bin, T))
     else
-        append!(vartypes, [:Cont for t in 1:T])
+        append!(vartypes, fill(:Cont, T))
     end
 
 
