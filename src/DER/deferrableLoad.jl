@@ -64,6 +64,58 @@ function DeferrableLoad(;
 end
 
 """
+    LindaOracleMIP
+
+Instanciate a MIP oracle for said resource.
+"""
+function LindaOracleMIP(l::DeferrableLoad, solver::MPB.AbstractMathProgSolver)
+    T = l.num_timesteps
+
+    var2idx = Dict{Tuple{Symbol, Int, Symbol, Int}, Int}()
+    row2idx = Dict{Tuple{Symbol, Int, Symbol, Int}, Int}()
+    obj = Vector{Float64}(undef, 0)
+    varlb = Vector{Float64}(undef, 0)
+    varub = Vector{Float64}(undef, 0)
+    vartypes = Vector{Symbol}(undef, 0)
+    rowlb = Vector{Float64}(undef, 0)
+    rowub = Vector{Float64}(undef, 0)
+    constrI = Vector{Int}(undef, 0)
+    constrJ = Vector{Int}(undef, 0)
+    constrV = Vector{Float64}(undef, 0)
+
+    # Update model
+    addmodel!(l,
+        var2idx, obj, varlb, varub, vartypes,
+        row2idx, rowlb, rowub, constrI, constrJ, constrV,
+        Int[]
+    )
+
+    numvar = length(var2idx)
+    numcon = length(row2idx)
+
+    A_link = spzeros(2*T, numvar)
+    for t in 1:T
+        A_link[t, var2idx[(:defer, l.index, :pnet, t)]] = 1.0
+        A_link[T+t, var2idx[(:defer, l.index, :pnet, t)]] = 1.0
+    end
+
+    return LindaOracleMIP(
+        l.index,
+        obj,
+        A_link,
+        sparse(constrI, constrJ, constrV, numcon, numvar),
+        rowlb,
+        rowub,
+        vartypes,
+        varlb,
+        varub,
+        solver
+    )
+
+end
+
+
+"""
     addmodel!(l,
         var2idx, obj, varlb, varub, vartypes,
         row2idx, rowlb, rowub, constrI, constrJ, constrV,
