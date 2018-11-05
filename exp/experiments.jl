@@ -174,6 +174,8 @@ function generate_resources(
     # Create a pool of `num_der` houses
     # Each household owns appliances according to `devices_rates`
     for i in 1:num_der
+
+        appliances = DR.DER.Resource[]
         γ = 0.5 + rand()  # household's scaling factor
 
         # Fixed load
@@ -182,6 +184,23 @@ function generate_resources(
             T=T,
             load= γ .* (load_norm .+ 0.05 .* rand(T))
         )
+        push!(appliances, l)
+
+        # Electric vehicle
+        ndays = div(T, 24)
+        if T==24
+            ev = DR.DER.DeferrableLoad(
+                index=i, T=T, dt=1.0,
+                num_cycles=1,
+                cycle_begin=[16],
+                cycle_end=[24],
+                cycle_energy_min=[10.0], cycle_energy_max=[10.0],
+                pwr_min=[zeros(15); 1.1*ones(9)],
+                pwr_max=[zeros(15); 7.7*ones(9)],
+                binary_flag=true
+            )
+            push!(appliances, ev)
+        end
 
         # PV
         ζ = rand(T)
@@ -192,9 +211,10 @@ function generate_resources(
             load= γ .* PV_norm .* ζ,
             binaryFlag=true
         )
+        push!(appliances, pv)
 
         # Battery
-        b = DR.DER.Battery(
+        bat = DR.DER.Battery(
             index=i,
             T=T,
             dt=1.0,
@@ -203,6 +223,7 @@ function generate_resources(
             discharge_pwr_min=1.0, discharge_pwr_max=6.0,
             charge_eff=1.0, discharge_eff=1.0
         )
+        push!(appliances, bat)
         
         # Household
         h = DR.DER.House(
@@ -212,7 +233,7 @@ function generate_resources(
             netload_min = zeros(T),
             netload_max = 10.0 .* ones(T),
             price=price,
-            appliances=[b, l, pv]
+            appliances=appliances
         )
         resources[i] = h
     end
