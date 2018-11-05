@@ -3,7 +3,7 @@
 
 Fixed load, a.k.a. Uncontrollable load
 """
-mutable struct FixedLoad <: Resource
+struct FixedLoad <: Resource
     index::Int           # Index of the resource
     num_timesteps::Int   # Number of time-steps in the battery's operation
 

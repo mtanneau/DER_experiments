@@ -3,7 +3,7 @@
 
 Curtailable load
 """
-mutable struct CurtailableLoad <: Resource
+struct CurtailableLoad <: Resource
     index::Int           # Index of the resource
     num_timesteps::Int   # Number of time-steps in the battery's operation
 

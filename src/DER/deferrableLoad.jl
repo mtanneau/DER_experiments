@@ -3,7 +3,7 @@
 
 Deferrable Load
 """
-mutable struct DeferrableLoad <: Resource
+struct DeferrableLoad <: Resource
     index::Int  # Unique index of device
     num_timesteps::Int  # Number of time-steps in horizon
     dt::Float64  # Duration of each time-step
