@@ -62,3 +62,132 @@ function DeferrableLoad(;
         binary_flag
     )
 end
+
+"""
+    addmodel!(l,
+        var2idx, obj, varlb, varub, vartypes,
+        row2idx, rowlb, rowub, constrI, constrJ, constrV,
+        constr_
+    )
+
+Add self to existing model.
+
+# Arguments
+- `l`
+- `var2idx`
+- `obj`
+- `varlb`
+- `vartypes`
+- `row2idx`
+- `rowlb`
+- `rowub`
+- `constrI`
+- `constrJ`
+- `constrV`
+- `constr_`
+"""
+function addmodel!(
+    l::DeferrableLoad,
+    var2idx, obj, varlb, varub, vartypes,
+    row2idx, rowlb, rowub, constrI, constrJ, constrV,
+    constr_
+)
+    T = l.num_timesteps
+    T_ = length(constr_)
+
+    (T_ == 0) || (T == T_) || error("T=$T but $T_ linking constraints in input")
+
+    # ==========================================
+    #    I. Add local variables
+    # ==========================================
+    # Net load
+    for t in 1:T
+        var2idx[(:defer, l.index, :pnet, t)] = length(var2idx) + 1
+    end
+    append!(obj, zeros(T))
+    append!(varlb, l.pwr_min)
+    append!(varub, l.pwr_max)
+    append!(vartypes, fill(:Cont, T))
+
+    # On-Off indicator
+    for t in 1:T
+        var2idx[(:defer, l.index, :uind, t)] = length(var2idx) + 1
+    end
+    append!(obj, zeros(T))
+    append!(varlb, zeros(T))
+    append!(varub, ones(T))
+    if l.binary_flag
+        append!(vartypes, fill(:Bin, T))
+    else
+        append!(vartypes, fill(:Cont, T))
+    end
+
+    # ==========================================
+    #    II. Update linking constraints
+    # ==========================================
+    if T_ > 0
+        append!(constrI, constr_)
+        append!(constrJ, [var2idx[(:defer, l.index, :pnet, t)] for t in 1:T])
+        append!(constrV, -ones(T))
+    end
+
+    # ==========================================
+    #    III. Add local constraints
+    # ==========================================
+    # Energy consumption for each cycle
+    # E_min[k] <= p[t_1] + ... + p[t_k] <= E_max[k]
+    for k in 1:l.num_cycles
+        # create constraint for cycle k
+        i = length(row2idx) + 1
+        row2idx[:defer, l.index, :cons, 10000*k + t] = i
+        
+        L = l.cycle_end[k] - l.cycle_begin[k] + 1  # length of the cycle
+        append!(constrI, fill(i, L))
+        append!(constrJ, [
+            var2idx[(:defer, l.index, :pnet, t)]
+            for t in Base.UnitRange(l.cycle_begin[k], l.cycle_end[k])
+        ])
+        append!(constrV, ones(L))
+
+    end
+    append!(rowlb, l.cycle_energy_min)
+    append!(rowub, l.cycle_energy_max)
+
+    # On-off
+    # Pmin[t] * u[t] <= p[t], i.e.:
+    # p[t] - Pmin[t] * u[t] >= 0
+    for t in 1:T
+        i = length(row2idx) + 1
+        row2idx[(:defer, l.index, :pmin, t)] = i
+
+        append!(constrI, [i, i])
+        append!(constrJ, [
+            var2idx[(:defer, l.index, :pnet, t)],
+            var2idx[(:defer, l.index, :uind, t)]
+        ])
+        append!(constrV, [1.0, -l.pwr_min[t]])
+    end
+    append!(rowlb, zeros(T))
+    append!(rowub, fill(Inf, T))
+
+    # p[t] <= Pmax * u[t], i.e. p[t] - Pmax[t] * u[t] <= 0
+    for t in 1:T
+        i = length(row2idx) + 1
+        row2idx[(:defer, l.index, :pmax, t)] = i
+        append!(constrI, [i, i])
+        append!(constrJ, [
+            var2idx[(:defer, l.index, :pnet, t)],
+            var2idx[(:defer, l.index, :uind, t)]
+        ])
+        append!(constrV, [1.0, -l.pwr_max[t]])
+    end
+    append!(rowlb, fill(-Inf, T))
+    append!(rowub, zeros(T))
+
+    # ==========================================
+    #    IV. Add sub-resources to current model
+    # ==========================================
+    # (None here)
+    
+    return nothing
+end
