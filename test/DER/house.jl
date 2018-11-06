@@ -31,7 +31,7 @@ push!(appliances, deferLoad)
 h = DR.DER.House(0, T, 1.0, -5*ones(T), 5*ones(T), p, appliances)
 
 env = Linda.LindaEnv()
-o = Linda.Oracle.LindaOracleMIP(h, CplexSolver(CPX_PARAM_SCRIND=0))
+o = Linda.Oracle.LindaOracleMIP(h, GLPKSolverMIP())
 Linda.Oracle.query!(o, zeros(2*T), 0.0)
 
 @test Linda.Oracle.get_sp_dual_bound(o) ≈ 0.0

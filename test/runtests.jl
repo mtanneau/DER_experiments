@@ -9,7 +9,7 @@ const DR = DemandResponse
 import MathProgBase
 const MPB = MathProgBase
 
-import CPLEX:CplexSolver
+import GLPKMathProgInterface: GLPKSolverMIP
 import Linda
 
 # write your own tests here
