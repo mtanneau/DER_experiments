@@ -1,5 +1,3 @@
-import JuMP
-
 import MathProgBase
 const MPB = MathProgBase
 

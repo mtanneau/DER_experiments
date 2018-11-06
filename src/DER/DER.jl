@@ -4,8 +4,6 @@ using LinearAlgebra
 using Random
 using SparseArrays
 
-# import JuMP
-
 import MathProgBase
 const MPB = MathProgBase
 
