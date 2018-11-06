@@ -1,3 +1,8 @@
+using Pkg
+if !haskey(Pkg.installed(), "Linda")
+    Pkg.clone("https://github.com/ds4dm/Linda.jl")
+end
+
 using LinearAlgebra
 using Random
 using Printf
