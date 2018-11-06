@@ -187,19 +187,25 @@ function generate_resources(
         push!(appliances, l)
 
         # Electric vehicle
-        ndays = div(T, 24)
-        if T==24
+        if (T % 24) == 0
+            ndays = div(T, 24)
+
             ev = DR.DER.DeferrableLoad(
                 index=i, T=T, dt=1.0,
-                num_cycles=1,
-                cycle_begin=[16],
-                cycle_end=[24],
-                cycle_energy_min=[10.0], cycle_energy_max=[10.0],
-                pwr_min=[zeros(15); 1.1*ones(9)],
-                pwr_max=[zeros(15); 7.7*ones(9)],
+                num_cycles=ndays,
+                cycle_begin=[16 + 24*(d-1) for d in 1:ndays],
+                cycle_end=[16 + 24*(d-1) for d in 1:ndays],
+                cycle_energy_min=fill(10.0, ndays),
+                cycle_energy_max=fill(10.0, ndays),
+                pwr_min=repeat([zeros(15); 1.1*ones(9)], ndays),
+                pwr_max=repeat([zeros(15); 7.7*ones(9)], ndays),
                 binary_flag=true
             )
             push!(appliances, ev)
+
+        else
+            # Not an integer number of days
+            # Do not include EV
         end
 
         # PV
