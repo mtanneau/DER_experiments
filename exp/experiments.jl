@@ -194,7 +194,7 @@ function generate_resources(
                 index=i, T=T, dt=1.0,
                 num_cycles=ndays,
                 cycle_begin=[16 + 24*(d-1) for d in 1:ndays],
-                cycle_end=[16 + 24*(d-1) for d in 1:ndays],
+                cycle_end=[24 + 24*(d-1) for d in 1:ndays],
                 cycle_energy_min=fill(10.0, ndays),
                 cycle_energy_max=fill(10.0, ndays),
                 pwr_min=repeat([zeros(15); 1.1*ones(9)], ndays),
