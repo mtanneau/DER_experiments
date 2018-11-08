@@ -154,6 +154,7 @@ function generate_resources(
     devices_rates::Dict{Symbol, Float64},
     load_norm::Vector,
     PV_norm::Vector,
+    temp_ext::Vector,
     price::Vector;
     seed=0
 )
@@ -182,54 +183,69 @@ function generate_resources(
         l = DR.DER.FixedLoad(
             index=i,
             T=T,
-            load= γ .* (load_norm .+ 0.05 .* rand(T))
+            load= γ .* max.(0.0, (load_norm .+ 0.05 .* randn(T)))
         )
         push!(appliances, l)
 
-        # Electric vehicle
-        if (T % 24) == 0
-            ndays = div(T, 24)
+        # Thermal load
+        th = DR.DER.ThermalLoad(
+            index=i, T=T, dt=1.0,
+            temp_min=fill(18.0, T), temp_max=fill(22.0, T),
+            temp_ext=temp_ext + 0.5 .* randn(T),
+            pwr_min=zeros(T), pwr_max=10.0 .* ones(T),
+            C=3.0, η=1.0, μ=0.2,
+            binary_flag=false
+        )
 
-            ev = DR.DER.DeferrableLoad(
-                index=i, T=T, dt=1.0,
-                num_cycles=ndays,
-                cycle_begin=[16 + 24*(d-1) for d in 1:ndays],
-                cycle_end=[24 + 24*(d-1) for d in 1:ndays],
-                cycle_energy_min=fill(10.0, ndays),
-                cycle_energy_max=fill(10.0, ndays),
-                pwr_min=repeat([zeros(15); 1.1*ones(9)], ndays),
-                pwr_max=repeat([zeros(15); 7.7*ones(9)], ndays),
-                binary_flag=true
+        if rand() < 1.0
+            # Electric vehicle
+            if (T % 24) == 0
+                ndays = div(T, 24)
+
+                ev = DR.DER.DeferrableLoad(
+                    index=i, T=T, dt=1.0,
+                    num_cycles=ndays,
+                    cycle_begin=[16 + 24*(d-1) for d in 1:ndays],
+                    cycle_end=[24 + 24*(d-1) for d in 1:ndays],
+                    cycle_energy_min=fill(10.0, ndays),
+                    cycle_energy_max=fill(10.0, ndays),
+                    pwr_min=repeat([zeros(15); 1.1*ones(9)], ndays),
+                    pwr_max=repeat([zeros(15); 7.7*ones(9)], ndays),
+                    binary_flag=true
+                )
+                push!(appliances, ev)
+
+            else
+                # Not an integer number of days
+                # Do not include EV
+            end
+
+            # PV
+            ζ = rand(T)
+            pv = DR.DER.CurtailableLoad(
+                index=i,
+                T=T,
+                dt=1.0,
+                load= γ .* PV_norm .* ζ,
+                binaryFlag=true
             )
-            push!(appliances, ev)
+            push!(appliances, pv)
 
-        else
-            # Not an integer number of days
-            # Do not include EV
+            # Battery
+            bat = DR.DER.Battery(
+                index=i,
+                T=T,
+                dt=1.0,
+                soc_min=zeros(T),
+                soc_max=13.5 .* ones(T),
+                soc_init=0.0,
+                selfdischargerate=1.0,
+                charge_pwr_min=0.0, charge_pwr_max=5.0,
+                discharge_pwr_min=0.0, discharge_pwr_max=5.0,
+                charge_eff=0.95, discharge_eff=0.95
+            )
+            push!(appliances, bat)
         end
-
-        # PV
-        ζ = rand(T)
-        pv = DR.DER.CurtailableLoad(
-            index=i,
-            T=T,
-            dt=1.0,
-            load= γ .* PV_norm .* ζ,
-            binaryFlag=true
-        )
-        push!(appliances, pv)
-
-        # Battery
-        bat = DR.DER.Battery(
-            index=i,
-            T=T,
-            dt=1.0,
-            soc_min=zeros(T), soc_max=10.0*ones(T), soc_init=0.0, selfdischargerate=1.0,
-            charge_pwr_min=1.0, charge_pwr_max=6.0,
-            discharge_pwr_min=1.0, discharge_pwr_max=6.0,
-            charge_eff=1.0, discharge_eff=1.0
-        )
-        push!(appliances, bat)
         
         # Household
         h = DR.DER.House(
