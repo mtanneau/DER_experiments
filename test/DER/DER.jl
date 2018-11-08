@@ -4,7 +4,7 @@ import GLPKMathProgInterface: GLPKSolverMIP
     include("fixedLoad.jl")
     include("deferrableLoad.jl")
     include("curtailableLoad.jl")
-    include("uninterruptibleLoad.jl")
+    include("shiftableLoad.jl")
     include("battery.jl")
     include("thermalLoad.jl")
     include("house.jl")

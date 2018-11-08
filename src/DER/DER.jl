@@ -32,6 +32,7 @@ include("curtailableLoad.jl")
 include("deferrableLoad.jl")
 include("battery.jl")
 include("thermalLoad.jl")
+include("shiftableLoad.jl")
 include("house.jl")
 
 end  # module
