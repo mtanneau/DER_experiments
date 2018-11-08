@@ -95,5 +95,5 @@ function buildmodel(a::Aggregator, solver::MPB.AbstractMathProgSolver)
     MPB.loadproblem!(m, A, varlb, varub, obj, rowlb, rowub, :Min)
     MPB.setvartype!(m, vartypes)
 
-    return m
+    return m, var2idx, row2idx
 end
