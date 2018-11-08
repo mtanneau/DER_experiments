@@ -30,7 +30,7 @@ h2 = DR.DER.House(index=2, T=T, netload_min=zeros(T),netload_max=5.0*ones(T), pr
 agg = DR.Aggregator(T, netload_min, netload_max, p_mkt, [h1, h2])
 
 # Build centralized model
-m = DR.buildmodel(agg, GLPKSolverMIP())
+m, var2idx, row2idx = DR.buildmodel(agg, GLPKSolverMIP())
 MPB.optimize!(m)
 
 @printf("Obj: %f\n", MPB.getobjval(m))
