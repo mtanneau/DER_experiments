@@ -68,7 +68,7 @@ function generate_mp(
     MPB.loadproblem!(rmp, A, collb, colub, obj, rowlb, rowub, :Min)
     
     # Instanciate MP
-    mp = Linda.LindaMaster(num_der, 2*T, vcat(netloadmax, netloadmin), 2*T, columns, rmp)
+    mp = Linda.LindaMaster(num_der, 2*T, vcat(netloadmax, netloadmin), 4*T, columns, rmp)
     
     return mp
 end
@@ -85,10 +85,10 @@ function generate_RMP_data(
 )
 
     Alink = vcat(
-        spzeros(num_der, 2*T),
+        spzeros(num_der, 4*T),
         vcat(
-            hcat(sparse(1.0I, T, T),  spzeros(T, T)), # <= u
-            hcat(spzeros(T, T), sparse(-1.0I, T, T)) # >= l
+            hcat(sparse(1.0I, T, T), sparse(-1.0I, T, T), spzeros(T, 2*T)), # <= u
+            hcat(spzeros(T, 2*T), sparse(1.0I, T, T), sparse(-1.0I, T, T)) # >= l
         )
     )
     ncols = length(columns)
@@ -100,13 +100,19 @@ function generate_RMP_data(
         )
     )
     
-    obj = vcat(zeros(2*T), [c.cost for c in columns])
+    obj = vcat(
+        zeros(T),
+        fill(1e3, T),
+        fill(1e3, T),
+        zeros(T),
+        [c.cost for c in columns]
+    )
     
     rowlb = vcat(ones(num_der), netloadmax, netloadmin)
     rowub = vcat(ones(num_der), netloadmax, netloadmin)
     
-    collb = zeros(2*T + ncols)
-    colub = fill(Inf, 2*T + ncols)
+    collb = zeros(4*T + ncols)
+    colub = fill(Inf, 4*T + ncols)
 
     return A, obj, rowlb, rowub, collb, colub
 end
@@ -122,18 +128,24 @@ function generate_RMP_data(
         num_der,
         [c.idx_subproblem for c in columns],
         Matrix(vcat(
-            hcat(sparse(1.0I, T, T),  spzeros(T, T)), # <= u
-            hcat(spzeros(T, T), sparse(-1.0I, T, T)) # >= l
+            hcat(sparse(1.0I, T, T), sparse(-1.0I, T, T), spzeros(T, 2*T)), # <= u
+            hcat(spzeros(T, 2*T), sparse(1.0I, T, T), sparse(-1.0I, T, T)) # >= l
         ))
     )
     
-    obj = vcat(zeros(2*T), [c.cost for c in columns])
+    obj = vcat(
+        zeros(T),
+        fill(1e3, T),
+        fill(1e3, T),
+        zeros(T),
+        [c.cost for c in columns]
+    )
     
     rowlb = vcat(ones(num_der), netloadmax, netloadmin)
     rowub = vcat(ones(num_der), netloadmax, netloadmin)
     
-    collb = zeros(2*T + ncols)
-    colub = fill(Inf, 2*T + ncols)
+    collb = zeros(4*T + ncols)
+    colub = fill(Inf, 4*T + ncols)
 
     return A, obj, rowlb, rowub, collb, colub
 end
@@ -187,6 +199,38 @@ function generate_resources(
         )
         push!(appliances, l)
 
+        # Shiftable loads
+        # Dishwasher
+        dishwasher = DR.DER.ShiftableLoad(
+            index = 10000000 + i,  # TODO: handle index number properly
+            T=T,
+            cycle_begin_min=1,
+            cycle_begin_max=T-1,
+            cycle_length=2,
+            cycle_load=[1.0, 1.0]
+        )
+        push!(appliances, dishwasher)
+
+        clothes_washer = DR.DER.ShiftableLoad(
+            index = 20000000 + i,  # TODO: handle index number properly
+            T=T,
+            cycle_begin_min=1,
+            cycle_begin_max=T-1,
+            cycle_length=2,
+            cycle_load=[1.0, 1.0]
+        )
+        push!(appliances, clothes_washer)
+
+        clothes_dryer = DR.DER.ShiftableLoad(
+            index = 30000000 + i,  # TODO: handle index number properly
+            T=T,
+            cycle_begin_min=1,
+            cycle_begin_max=T-2,
+            cycle_length=3,
+            cycle_load=[1.0, 1.0, 1.0]
+        )
+        push!(appliances, clothes_dryer)
+
         # Thermal load
         th = DR.DER.ThermalLoad(
             index=i, T=T, dt=1.0,
@@ -196,56 +240,54 @@ function generate_resources(
             C=3.0, η=1.0, μ=0.2,
             binary_flag=false
         )
+        
+        # Electric vehicle
+        if (T % 24) == 0
+            ndays = div(T, 24)
 
-        if rand() < 1.0
-            # Electric vehicle
-            if (T % 24) == 0
-                ndays = div(T, 24)
-
-                ev = DR.DER.DeferrableLoad(
-                    index=i, T=T, dt=1.0,
-                    num_cycles=ndays,
-                    cycle_begin=[16 + 24*(d-1) for d in 1:ndays],
-                    cycle_end=[24 + 24*(d-1) for d in 1:ndays],
-                    cycle_energy_min=fill(10.0, ndays),
-                    cycle_energy_max=fill(10.0, ndays),
-                    pwr_min=repeat([zeros(15); 1.1*ones(9)], ndays),
-                    pwr_max=repeat([zeros(15); 7.7*ones(9)], ndays),
-                    binary_flag=true
-                )
-                push!(appliances, ev)
-
-            else
-                # Not an integer number of days
-                # Do not include EV
-            end
-
-            # PV
-            ζ = rand(T)
-            pv = DR.DER.CurtailableLoad(
-                index=i,
-                T=T,
-                dt=1.0,
-                load= γ .* PV_norm .* ζ,
-                binaryFlag=true
+            ev = DR.DER.DeferrableLoad(
+                index=i, T=T, dt=1.0,
+                num_cycles=ndays,
+                cycle_begin=[16 + 24*(d-1) for d in 1:ndays],
+                cycle_end=[24 + 24*(d-1) for d in 1:ndays],
+                cycle_energy_min=fill(10.0, ndays),
+                cycle_energy_max=fill(10.0, ndays),
+                pwr_min=repeat([zeros(15); 1.1*ones(9)], ndays),
+                pwr_max=repeat([zeros(15); 7.7*ones(9)], ndays),
+                binary_flag=true
             )
-            push!(appliances, pv)
+            push!(appliances, ev)
 
-            # Battery
-            bat = DR.DER.Battery(
-                index=i,
-                T=T,
-                dt=1.0,
-                soc_min=zeros(T),
-                soc_max=13.5 .* ones(T),
-                soc_init=0.0,
-                selfdischargerate=1.0,
-                charge_pwr_min=0.0, charge_pwr_max=5.0,
-                discharge_pwr_min=0.0, discharge_pwr_max=5.0,
-                charge_eff=0.95, discharge_eff=0.95
-            )
-            push!(appliances, bat)
+        else
+            # Not an integer number of days
+            # Do not include EV
         end
+
+        # PV
+        ζ = rand(T)
+        pv = DR.DER.CurtailableLoad(
+            index=i,
+            T=T,
+            dt=1.0,
+            load= γ .* PV_norm .* ζ,
+            binaryFlag=true
+        )
+        push!(appliances, pv)
+
+        # Battery
+        bat = DR.DER.Battery(
+            index=i,
+            T=T,
+            dt=1.0,
+            soc_min=zeros(T),
+            soc_max=13.5 .* ones(T),
+            soc_init=0.0,
+            selfdischargerate=1.0,
+            charge_pwr_min=0.0, charge_pwr_max=5.0,
+            discharge_pwr_min=0.0, discharge_pwr_max=5.0,
+            charge_eff=0.95, discharge_eff=0.95
+        )
+        push!(appliances, bat)
         
         # Household
         h = DR.DER.House(
