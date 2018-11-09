@@ -276,8 +276,8 @@ function addmodel!(
     # Energy conservation at time t=1
     #   soc[1] - soc_init = bat.charge_eff * pchg[1] - (1.0 / bat.discharge_eff) * pdis[1]
     row2idx[(:bat, bat.index, :soc, 1)] = length(row2idx)+1
-    rowlb[row2idx[(:bat, bat.index, :soc, 1)]] = bat.soc_init
-    rowub[row2idx[(:bat, bat.index, :soc, 1)]] = bat.soc_init
+    rowlb[row2idx[(:bat, bat.index, :soc, 1)]] = bat.soc_init * bat.selfdischargerate
+    rowub[row2idx[(:bat, bat.index, :soc, 1)]] = bat.soc_init * bat.selfdischargerate
     i = row2idx[(:bat, bat.index, :soc, 1)]
     append!(constrI, [i, i, i])
     append!(constrJ,
@@ -314,7 +314,7 @@ function addmodel!(
         append!(constrV,
             [
                 1.0,
-                -1.0,
+                - bat.soc_init * bat.selfdischargerate,
                 -bat.charge_eff,
                 1.0 / bat.discharge_eff
             ]
