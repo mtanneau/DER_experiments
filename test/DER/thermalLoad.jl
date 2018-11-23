@@ -76,19 +76,18 @@ Run unit tests on oracle instanciation for FixedLoad
 function test_thermalLoad_oracle()
 
     T = 2
-    load = [1.0, 3.0]
 
     @testset "Oracle" begin
         l = DR.DER.ThermalLoad(
             index=1, T=2, dt=1.0,
-            temp_min=[18.0, 18.0],
-            temp_max=[22.0, 22.0],
+            temp_min=[20.0, 20.0],
+            temp_max=[20.0, 20.0],
             temp_ext=[0.0, 0.0],
             temp_init=20.0,
-            pwr_min=[2.0, 2.0],
+            pwr_min=[0.0, 0.0],
             pwr_max=[10.0, 10.0],
             C=1.0, η=1.0, μ=0.2,
-            binary_flag=true
+            binary_flag=false
         )
         mip_solver = GLPKSolverMIP()
 
@@ -99,14 +98,15 @@ function test_thermalLoad_oracle()
         Linda.Oracle.query!(o, zeros(2*T), 0.0)
         @test Linda.Oracle.get_sp_dual_bound(o) ≈ 0.0
         @test Linda.Oracle.get_num_new_columns(o) >= 1
+        col = Linda.Oracle.get_new_columns(o)[1]
+        @test col.col == [4.0, 4.0, 4.0, 4.0]
 
         # Query oracle with positive shadow prices
         # (we're minimizing cost so consumption is maximized)
         Linda.Oracle.query!(o, [ones(T); zeros(T)], 0.0)
         # @test Linda.Oracle.get_sp_dual_bound(o) ≈ -sum(load)
         @test Linda.Oracle.get_num_new_columns(o) >= 1
-        # col = Linda.Oracle.get_new_columns(o)[1]
-        # @test col.col == [load; load]
+        
 
         # Query oracle with negative shadow prices
         # (we're minimizing cost so consumption is minimized)

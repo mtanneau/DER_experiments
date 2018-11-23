@@ -34,4 +34,4 @@ env = Linda.LindaEnv()
 o = Linda.Oracle.LindaOracleMIP(h, GLPKSolverMIP())
 Linda.Oracle.query!(o, zeros(2*T), 0.0)
 
-@test Linda.Oracle.get_sp_dual_bound(o) ≈ 0.0
+@test length(Linda.Oracle.get_new_columns(o)) >= 1
