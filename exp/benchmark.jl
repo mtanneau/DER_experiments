@@ -29,22 +29,15 @@ function main()
     rmp_solvers = [:TLP, :MSK, :GRB, :CPX, :SGRB, :SCPX]
 
     # Compilation round
-    _logs = run_experiment(;
+    run_experiment(;
         T0=408+7, T=6, R=16, ξ=0.33, seed=0,
         solvers=rmp_solvers,
         cg_verbose=false,
         export_res=false, res_folder="res/"
     )
 
-    df = DataFrames.DataFrame(
-        [
-            k => Vector{typeof(v)}()
-            for (k, v) in _logs[rmp_solvers[1]]
-        ]...
-    )
-
     # Real business
-    logs = run_experiment(;
+    run_experiment(;
         T0=408+7,
         T=args[:T],
         R=args[:R],
@@ -57,12 +50,6 @@ function main()
         export_res=true,
         res_folder="res/"
     )
-
-    for (s, log) in logs
-        push!(df, log)
-    end
-
-    display(df)
 
     return nothing
 end
