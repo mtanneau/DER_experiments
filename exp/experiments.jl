@@ -490,6 +490,7 @@ function run_atomic_experiment!(
         open(res_file_name*".out", "w") do io_out
             redirect_stdout(io_out)
             Linda.solve_colgen!(env, mp, pool, cg_log=cg_log)
+            flush(io_out)
         end
         redirect_stdout(stdio)
     else

@@ -51,6 +51,9 @@ function main()
         res_folder="res/"
     )
 
+    println("Done.")
+    flush(Base.stdout)
+
     return nothing
 end
 
