@@ -321,10 +321,17 @@ function run_experiment(;
     T0::Int=408+7, T::Int=24, R::Int=1024, ξ::Float64=0.33, seed::Int=42,
     solvers::Vector{Symbol}=Symbol[],
     cg_verbose::Bool=true,
-    export_res::Bool=false
+    cg_iter_max::Int=250,
+    time_limit::Float64=7200.0,
+    export_res::Bool=false,
+    res_folder::String="./"
 )
 
+    # Log info
+    println("\n", "*"^80, "\n")
+
     # Load data
+    println("Loading data...")
     ont_load = CSV.read("../dat/load2016.csv")
     ont_price = CSV.read("../dat/price2016.csv")
     ont_prod = CSV.read("../dat/prod2016.csv")
@@ -360,53 +367,72 @@ function run_experiment(;
     # ===========================
     #   Instanciate resources
     # ===========================
-    resources = generate_resources(
+    println("Instanciating resources...")
+    @time resources = generate_resources(
         R, T, own_rates,
         load_norm, pv_norm, temp_ext, p_mkt,
         seed=seed
     )
 
-    GRBENV = Gurobi.Env()
-    GRBSolverSP = GurobiSolver(
-        GRBENV, # Re-use the same Gurobi environment
-        OutputFlag=0,
-        Threads=1,
-        # Tuned parameters
-        MIPFocus=1,
-        Presolve=-1
-    )
+    println("Instanciating oracles...")
+    @time begin
+        GRBENV = Gurobi.Env()
+        GRBSolverSP = GurobiSolver(
+            GRBENV, # Re-use the same Gurobi environment
+            OutputFlag=0,
+            Threads=1,
+            # Tuned parameters
+            MIPFocus=1,
+            Presolve=-1
+        )
 
-    pool = Linda.Oracle.LindaOraclePool(
-        [
-            Linda.Oracle.LindaOracleMIP(r, GRBSolverSP)
-            for r in resources
-        ]
-    )
+        pool = Linda.Oracle.LindaOraclePool(
+            [
+                Linda.Oracle.LindaOracleMIP(r, GRBSolverSP)
+                for r in resources
+            ]
+        )
+    end
 
     # Generate one initial column for each resource
-    initial_cols = Linda.Column[]
-    for o in pool.oracles
-        Linda.Oracle.query!(o, zeros(2*T), Inf)
-        col = Linda.Oracle.get_new_columns(o)[1]
-        push!(initial_cols, col)
+    println("Computing initial columns...")
+    @time begin
+        initial_cols = Linda.Column[]
+        for o in pool.oracles
+            Linda.Oracle.query!(o, zeros(2*T), Inf)
+            col = Linda.Oracle.get_new_columns(o)[1]
+            push!(initial_cols, col)
+        end
     end
 
     # ===========================
     #   Benchmark RMP solvers
     # ===========================
 
+
+    println("Launching experiments\n")
     env = Linda.LindaEnv()
     env[:verbose] = cg_verbose
-    env[:num_cgiter_max] = 250
+    env[:num_cgiter_max] = cg_iter_max
+    env[:time_limit] = time_limit
     env[:num_columns_max] = Int(ceil(R/10))
+
+    println("Problem statistics:")
+    println("\tR        = $R")
+    println("\tT        = $T")
+    println("\tξ        = $ξ")
+    println("\tseed     = $seed")
+    println("\tRMP sol. = ", solvers)
+    println("\tItermax  = ", env[:num_cgiter_max])
+    println("\tColmax   = ", env[:num_columns_max])
+    println("\tTime lim = ", env[:time_limit])
+    println()
 
     logs = Dict{Symbol, Any}()
 
     for s in solvers
         
-        # Instanciate MP
-        mp_solver = solver(s)
-        mp = generate_mp(R, T, total_load_min, total_load_max, initial_cols, mp_solver)
+        res_file_name = "cg_$(T)_$(R)_$(ξ)_$(seed)_$(s)"
 
         # Log
         cg_log = Dict{Symbol, Any}(
@@ -415,34 +441,67 @@ function run_experiment(;
             :R => R,
             :seed => seed,
             :xi => ξ,
-            :solver => s
+            :solver => s,
+            :time_limit => env[:time_limit],
+            :num_col_priced_max => env[:num_columns_max]
         )
 
-        if cg_verbose
-            println("*"^80, "\n")
-            println("Problem statistics:")
-            println("\tR    = $R")
-            println("\tT    = $T")
-            println("\tξ    = $ξ")
-            println("\tseed = $seed")
-            println("\tRMP  = $s")
-            println("\tItermax = ", env[:num_cgiter_max])
-            println("\tColmax = ", env[:num_columns_max])
-            println()
+        # Check if output file already exists
+        if export_res && isfile(res_folder * res_file_name * ".csv")
+            println("\tOutput file already exists.")
+            continue
         end
 
-        Linda.solve_colgen!(env, mp, pool, cg_log=cg_log)
+        try
+            export_res && println("Result file `", res_file_name*".csv", "` not found, running experiment.")
+            @time run_atomic_experiment!(
+                R, T, seed, total_load_min, total_load_max, initial_cols, pool,
+                env, s, cg_log, export_res,
+                res_folder * res_file_name
+            )
+
+        catch err
+            @warn("Error encountered: $R, $T, $seed, $ξ, $s.\n$err")
+        end
 
         logs[s] = cg_log
-        
-        # Print output
-        if export_res
-            df = DataFrames.DataFrame(cg_log)
-            CSV.write("res_$(T)_$(R)_$(ξ)_$(seed)_$(s).csv", df)
-        end
 
     end
 
     return logs
+
+end
+
+function run_atomic_experiment!(
+    R, T, seed, total_load_min, total_load_max, initial_cols, pool,
+    env, s, cg_log,
+    export_res,
+    res_file_name
+)
+
+    # Instanciate MP
+    mp_solver = solver(s)
+    mp = generate_mp(R, T, total_load_min, total_load_max, initial_cols, mp_solver)
+
+    # set random seed for reproducibility
+    Random.seed!(seed)
+    if export_res
+        stdio = Base.stdout
+        open(res_file_name*".out", "w") do io_out
+            redirect_stdout(io_out)
+            Linda.solve_colgen!(env, mp, pool, cg_log=cg_log)
+        end
+        redirect_stdout(stdio)
+    else
+        Linda.solve_colgen!(env, mp, pool, cg_log=cg_log)
+    end
+    
+    # Print output
+    if export_res
+        df = DataFrames.DataFrame(cg_log)
+        CSV.write(res_file_name*".csv", df)
+    end
+
+    return nothing
 
 end
