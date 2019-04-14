@@ -3,7 +3,6 @@ import CSV
 using Statistics
 using LinearAlgebra
 using Random
-using BenchmarkTools
 using SparseArrays
 using Printf
 
@@ -383,7 +382,8 @@ function run_experiment(;
             Threads=1,
             # Tuned parameters
             MIPFocus=1,
-            Presolve=-1
+            Presolve=-1,
+            Seed=42
         )
 
         pool = Linda.Oracle.LindaOraclePool(
@@ -453,6 +453,7 @@ function run_experiment(;
         end
 
         try
+            println("#"^72)
             export_res && println("Result file `", res_file_name*".csv", "` not found, running experiment.")
             @time run_atomic_experiment!(
                 R, T, seed, total_load_min, total_load_max, initial_cols, pool,
@@ -485,17 +486,10 @@ function run_atomic_experiment!(
 
     # set random seed for reproducibility
     Random.seed!(seed)
-    if export_res
-        stdio = Base.stdout
-        open(res_file_name*".out", "w") do io_out
-            redirect_stdout(io_out)
-            Linda.solve_colgen!(env, mp, pool, cg_log=cg_log)
-            flush(io_out)
-        end
-        redirect_stdout(stdio)
-    else
-        Linda.solve_colgen!(env, mp, pool, cg_log=cg_log)
-    end
+    @info "seed=$seed, $(rand())"
+    println("\n$s\n")
+    Linda.solve_colgen!(env, mp, pool, cg_log=cg_log)
+    println()
     
     # Print output
     if export_res
