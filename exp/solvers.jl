@@ -7,12 +7,10 @@ import Tulip
 import Mosek
 import Gurobi
 import CPLEX
-import Clp
 
 import CPLEX:CplexSolver
 import Gurobi: GurobiSolver
 import Mosek: MosekSolver
-import Clp:ClpSolver
 import Tulip.TulipSolver
 
 
@@ -28,9 +26,6 @@ MPB.getsimplexiter(m::Mosek.MosekMathProgSolverInterface.MosekLinearQuadraticMod
 
 MPB.getsimplexiter(m::Tulip.TulipMathProgModel) = 0
 
-MPB.getsimplexiter(m::Clp.ClpMathProgSolverInterface.ClpMathProgModel) = Clp.number_iterations(m.inner)
-MPB.getbarrieriter(m::Clp.ClpMathProgSolverInterface.ClpMathProgModel) = Clp.number_iterations(m.inner)
-
 # Solver instanciation
 
 solver(s::Symbol) = solver(Val(s))
@@ -38,8 +33,9 @@ solver(::Val{:TLP}) = generate_lpsolver(:TLP)
 solver(::Val{:MSK}) = generate_lpsolver(:MSK, lpmethod=4, crossover=false)
 solver(::Val{:GRB}) = generate_lpsolver(:GRB, lpmethod=4, crossover=false)
 solver(::Val{:CPX}) = generate_lpsolver(:CPX, lpmethod=4, crossover=false)
-solver(::Val{:SGRB}) = generate_lpsolver(:GRB, lpmethod=0, crossover=true)
-solver(::Val{:SCPX}) = generate_lpsolver(:CPX, lpmethod=0, crossover=true)
+solver(::Val{:CPX_}) = generate_lpsolver(:CPX_, lpmethod=4, crossover=false)
+solver(::Val{:SGRB}) = generate_lpsolver(:GRB, lpmethod=1, crossover=true)
+solver(::Val{:SCPX}) = generate_lpsolver(:CPX, lpmethod=1, crossover=true)
 
 
 """
@@ -84,7 +80,7 @@ function generate_lpsolver(::Val{:CPX},
         CPX_PARAM_PREIND=_presolve,
         CPX_PARAM_THREADS=_nthreads,
         CPX_PARAM_LPMETHOD=_lpmethod, # 0:default, 1:PS, 2:DS, 4:IPM, 6:Concurrent
-        CPX_PARAM_SOLUTIONTYPE=crossover  # 0: default, 1: basic, 2:no crossover
+        CPX_PARAM_SOLUTIONTYPE=crossover  # 0: default, 1: basic, 2:no crossover,
     )
 
 end
@@ -142,4 +138,4 @@ end
 
 generate_lpsolver(::Val{:TLP},
     _verbose, _lpmethod, _nthreads, _crossover, _presolve
-) = TulipSolver(verbose = _verbose)
+) = TulipSolver(verbose = _verbose, barrier_iter_max=200)
