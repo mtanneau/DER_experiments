@@ -17,6 +17,11 @@ function parse_commandline()
             help = "Random seed"
             arg_type = Int
             default = 42
+
+        "--export"
+            help = "Flag indicating whether results should be exported or not"
+            action = :store_true
+
     end
 
     return parse_args(s, as_symbols=true)
@@ -37,6 +42,7 @@ function main()
     )
 
     # Real business
+    println("~~FLAG_EXPERIMENT~~")
     run_experiment(;
         T0=408+7,
         T=args[:T],
@@ -45,13 +51,11 @@ function main()
         seed=args[:seed],
         solvers=rmp_solvers,
         cg_iter_max=200,
-        time_limit=7200.0,
+        time_limit=10000.0,
         cg_verbose=true,
-        export_res=true,
+        export_res=args[:export],
         res_folder="res/"
     )
-
-    println("Done.")
     flush(Base.stdout)
 
     return nothing
