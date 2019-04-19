@@ -14,8 +14,8 @@ function FixedLoad(;
     index::Integer=0,
     T::Integer=0,
     dt::Float64=1.0,
-    load::AbstractVector{T1}=[0.0]
-) where{T1<:Real}
+    load::Vector{Float64}=Float64[]
+)
 
     # Dimension checks
     T == size(load, 1) || throw(DimensionMismatch("Invalid soc_min"))

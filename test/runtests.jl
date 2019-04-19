@@ -1,3 +1,9 @@
+# For CI builds to run
+using Pkg
+if !haskey(Pkg.installed(), "Linda")
+    Pkg.clone("https://github.com/ds4dm/Linda.jl")
+end
+
 using LinearAlgebra
 using Random
 using Printf
@@ -9,7 +15,7 @@ const DR = DemandResponse
 import MathProgBase
 const MPB = MathProgBase
 
-import CPLEX:CplexSolver
+import GLPKMathProgInterface: GLPKSolverMIP
 import Linda
 
 # write your own tests here

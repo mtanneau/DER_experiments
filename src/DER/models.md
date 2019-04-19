@@ -1,8 +1,8 @@
-# Fixed Load operational model
+# Fixed load
 
 ## Parameters
 
-* $T$: numver of time-steps
+* $T$: number of time-steps
 * $(P_{1}, ..., P_{T})$: fixed load at each time step
 
 ## Variables
@@ -18,7 +18,7 @@ $$
 $$
 
 
-# Curtailable load operational model
+# Curtailable load
 
 ## Parameters
 
@@ -42,7 +42,7 @@ $$
 $$
 
 
-# Uninterruptible loads
+# Uninterruptible load
 
 ## Parameters
 
@@ -96,9 +96,9 @@ $$
 
 ## Parameters
 * $P^{chg, min}_{t}$: Minimum charging power at time $t$
-* $P^{chg, max}_{t}$: Minimum charging power at time $t$
+* $P^{chg, max}_{t}$: Maximum charging power at time $t$
 * $P^{dis, min}_{t}$: Minimum discharging power at time $t$
-* $P^{dis, max}_{t}$: Minimum discharging power at time $t$
+* $P^{dis, max}_{t}$: Maximum discharging power at time $t$
 * $E^{min, max}$: Minimum and maximum state-of-charge of the battery
 * $η^{chg, dis}$: Charging/Discharging efficiencies of the battery
 
@@ -121,5 +121,33 @@ $$
         & u^{dis}_{t}  P^{dis, min}_{t} \leq p^{dis}_{t} &\leq u^{dis}_{t} P^{dis, max}_{t} \ \ \forall t \\
         & u^{chg}_{t} + u^{dis}_{t} & \leq 1 \ \ \forall t\\
         & u^{chg}_{t}, u^{dis}_{t} & \in \mathbb{B} \ \ \forall t
+    \end{array}
+$$
+
+# Thermal load
+
+## Parameters
+* $P^{min}_{t}, P^{max}_{t}$: Minimum/maximum power at time $t$
+* $\Theta^{min}_{t}, \Theta^{max}_{t}$: Minimum/maximum inside temperature at time $t$
+* $\Theta^{ext}_{t}$: Outside temperature at time $t$
+* $η$: Thermal efficiency
+* $\mu$: Thermal conductance
+* $C$: Thermal capacity
+
+## Variables
+* $p_{t}$: Power consumption at time $t$
+* $\theta_{t}$: Inside temperature at time $t$
+* $u_{t}$: On-off indicator at time $t$
+
+## Model
+
+$$
+    \begin{array}{cl}
+        \displaystyle \min_{θ, p, u} & 0\\
+        s.t.
+        & Θ^{min}_{t} \leq θ_{t} \leq Θ^{max}_{t} &\forall t\\
+        & \dfrac{\mu}{C} (\Theta^{ext}_{t} - \theta_{t}) + \dfrac{\eta}{C} p_{t} = \dfrac{1}{\Delta \tau}(\theta_{t+1} - \theta_{t}) &\forall t\\
+        & u_{t}  P^{min}_{t} \leq p_{t} \leq u_{t} P^{max}_{t} &\forall t \\
+        & u_{t}  \in \mathbb{B} &\forall t
     \end{array}
 $$

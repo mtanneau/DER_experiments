@@ -4,8 +4,6 @@ using LinearAlgebra
 using Random
 using SparseArrays
 
-# import JuMP
-
 import MathProgBase
 const MPB = MathProgBase
 
@@ -33,6 +31,8 @@ include("fixedLoad.jl")
 include("curtailableLoad.jl")
 include("deferrableLoad.jl")
 include("battery.jl")
+include("thermalLoad.jl")
+include("shiftableLoad.jl")
 include("house.jl")
 
 end  # module
