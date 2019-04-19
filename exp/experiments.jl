@@ -8,8 +8,12 @@ using Printf
 
 BLAS.set_num_threads(1)
 
+
+const DR_DIR = "$(@__DIR__)/../src/"
+const DATA_DIR = "$(@__DIR__)/../dat/"
+
 # Demand Response module
-include("../src/DemandResponse.jl")
+include(DR_DIR * "DemandResponse.jl")
 DR = DemandResponse
 
 include("solvers.jl")
@@ -331,10 +335,10 @@ function run_experiment(;
 
     # Load data
     println("Loading data...")
-    ont_load = CSV.read("../dat/load2016.csv")
-    ont_price = CSV.read("../dat/price2016.csv")
-    ont_prod = CSV.read("../dat/prod2016.csv")
-    ont_temp = CSV.read("../dat/temperature2016.csv")
+    ont_load = CSV.read(DATA_DIR*"load2016.csv")
+    ont_price = CSV.read(DATA_DIR*"price2016.csv")
+    ont_prod = CSV.read(DATA_DIR*"prod2016.csv")
+    ont_temp = CSV.read(DATA_DIR*"temperature2016.csv")
 
     # Market and Time-Of-Use prices
     p_tou = Vector{Float64}(ont_price.TOU[T0:(T0+T-1)])
