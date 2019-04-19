@@ -1,7 +1,1 @@
-# DemandResponse
-
-[![Build Status](https://travis-ci.com/mtanneau/DemandResponse.jl.svg?branch=master)](https://travis-ci.com/mtanneau/DemandResponse.jl)
-
-[![Coverage Status](https://coveralls.io/repos/mtanneau/DemandResponse.jl/badge.svg?branch=master&service=github)](https://coveralls.io/github/mtanneau/DemandResponse.jl?branch=master)
-
-[![codecov.io](http://codecov.io/github/mtanneau/DemandResponse.jl/coverage.svg?branch=master)](http://codecov.io/github/mtanneau/DemandResponse.jl?branch=master)
+# DER experiments
