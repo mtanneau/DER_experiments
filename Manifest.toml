@@ -1,3 +1,5 @@
+# This file is machine-generated - editing it directly is not advised
+
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
@@ -22,7 +24,7 @@ deps = ["Mmap"]
 uuid = "8bb1440f-4735-579b-a4ab-409b98df4dab"
 
 [[Distributed]]
-deps = ["LinearAlgebra", "Random", "Serialization", "Sockets"]
+deps = ["Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[Gurobi]]
@@ -32,7 +34,7 @@ uuid = "2e9cd046-0924-5485-92f1-d5272153d98b"
 version = "0.6.0"
 
 [[InteractiveUtils]]
-deps = ["LinearAlgebra", "Markdown"]
+deps = ["Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[LibGit2]]
@@ -49,7 +51,9 @@ version = "0.6.0"
 
 [[Linda]]
 deps = ["LinearAlgebra", "MathProgBase", "Printf", "Random", "Test"]
-path = "/home/mathieu/.julia/dev/Linda"
+git-tree-sha1 = "0fa01e214735b24cb0975f010ea020a34f6d6e6c"
+repo-rev = "9c0225654b21ad775c447da2c0f5afaf83fd3bf5"
+repo-url = "https://github.com/ds4dm/Linda.jl"
 uuid = "4f5ebc0c-70dc-5a88-8eac-7b9fb65244d9"
 version = "0.0.0"
 
@@ -127,15 +131,15 @@ deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[Tulip]]
-deps = ["LinearAlgebra", "MathProgBase", "Printf", "Random", "SparseArrays", "Test"]
-git-tree-sha1 = "0b0ec71d0e221be4c989e89b836b1c0c9f568e7e"
-repo-rev = "master"
+deps = ["LinearAlgebra", "MathProgBase", "Printf", "SparseArrays", "Test"]
+git-tree-sha1 = "6b98cdc1c09895400901073da00e99a272ff985f"
+repo-rev = "6668da04c3a5862b0af7df7b3032bee6c68a2f74"
 repo-url = "https://github.com/ds4dm/Tulip.jl"
-uuid = "73c0e4d2-baba-522d-b8dd-a8e76b736cac"
-version = "0.0.0"
+uuid = "6dd1b50a-3aae-11e9-10b5-ef983d2400fa"
+version = "0.1.0"
 
 [[UUIDs]]
-deps = ["Random"]
+deps = ["Random", "SHA"]
 uuid = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 
 [[Unicode]]
