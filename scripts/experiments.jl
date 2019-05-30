@@ -490,7 +490,6 @@ function run_atomic_experiment!(
 
     # set random seed for reproducibility
     Random.seed!(seed)
-    @info "seed=$seed, $(rand())"
     println("\n$s\n")
     Linda.solve_colgen!(env, mp, pool, cg_log=cg_log)
     println()
