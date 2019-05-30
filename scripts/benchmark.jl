@@ -2,6 +2,9 @@ using ArgParse
 
 include("experiments.jl")
 
+RES_FOLDER = "$(@__DIR__)/res/"
+@info "RES_FOLDER = $(RES_FOLDER)"
+
 function parse_commandline()
     s = ArgParseSettings()
     @add_arg_table s begin
@@ -38,7 +41,8 @@ function main()
         T0=408+7, T=6, R=16, ξ=0.33, seed=0,
         solvers=rmp_solvers,
         cg_verbose=false,
-        export_res=false, res_folder="res/"
+        export_res=false,
+        res_folder=RES_FOLDER
     )
 
     # Real business
@@ -54,7 +58,7 @@ function main()
         time_limit=10000.0,
         cg_verbose=true,
         export_res=args[:export],
-        res_folder="res/"
+        res_folder=RES_FOLDER
     )
     flush(Base.stdout)
 
