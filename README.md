@@ -40,13 +40,6 @@ Additional steps may be required for building the Julia interface of commercial 
 
 ## Running experiments
 
-Each individual experiment is performed by running the `benchmark.jl` script.
-The correspoding syntax is:
-```bash
-julia --project=. scripts/benchmark.jl -T 24 -R 128 -s 0 --export
-```
-The meaning of each parameter is explained in the code.
-
 
 To run the same set of experiments as in the paper, do the following:
 
@@ -54,7 +47,15 @@ To run the same set of experiments as in the paper, do the following:
 ```bash
 julia --project=. scripts/exp_preprocessing.jl
 ```
-This will create a `jobs.txt` file that contains the list of all individual jobs.
+This will create a `jobs.txt` file that contains the list of all individual jobs, corresponding to the experiments whose results are reported in Section 6.2 of the paper.
+
+Each individual experiment is performed by running the `benchmark.jl` script.
+The correspoding syntax is:
+```bash
+julia --project=. scripts/benchmark.jl -T <T> -R <R> -s <seed> --export
+```
+
+
 
 2. Create a `res/` and `out` directories 
 ```bash
@@ -63,13 +64,25 @@ mkdir scripts/out
 ```
 If such directories already exist, make sure to empty them before running the experiments.
 
-3. Run each job, e.g. using GNU parallel.
+3. Run each job, e.g. using GNU parallel:
+```bash
+cat jobs.txt | parallel --jobs <j>
+```
+The above command will automatically run each command in `jobs.txt`, using up to `j` cores.
 Note that large experiments may take several hours to run (up to 10,000s for each of the solver).
+
+
 
 ## Post-processing
 
 For each individual experiment (i.e., each tuple `(T, R, s)`), the corresponding results file will be located in `scripts/res`.
-Each file has the form `cg_<T>_<R>_0.33_<s>_<solver>.csv`, e.g.
+Each file has the form `cg_<T>_<R>_0.33_<s>_<solver>.csv`, e.g. `cg_24_1024_0.33_5_CPX.csv`.
+
+To process and aggregate results, run
+```bash
+mkdir scripts/log
+julia --project=. scripts/test_postpross.jl
 ```
-cg_24_1024_0.33_5_CPX.csv
-```
+The `test_postpross.jl` script will do the following:
+* Parse output files, and create individual logs for each solver
+* Aggregate individual results files into a single `results.csv` which will be located in `scripts/`.
