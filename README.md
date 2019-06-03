@@ -1,6 +1,6 @@
 # DER experiments
 
-This repository contains data and scripts for reproducing the computational experiments of 
+This repository contains data and scripts for reproducing the computational experiments presented in Section 6 of _Tulip: An open-source interior-point linear optimization solver with abstract linear algebra_.
 
 ## Installation instructions
 
@@ -84,5 +84,5 @@ mkdir scripts/log
 julia --project=. scripts/test_postpross.jl
 ```
 The `test_postpross.jl` script will do the following:
-* Parse output files, and create individual logs for each solver
+* Parse output files, and split into individual logs for each solver. These will be located in `scripts/log`.
 * Aggregate individual results files into a single `results.csv` which will be located in `scripts/`.

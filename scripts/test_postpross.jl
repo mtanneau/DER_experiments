@@ -43,6 +43,7 @@ end
 
 # Parse log files to get solver-specific logs
 out_files = readdir(OUT_DIR)
+@info "Parsing $(length(out_files)) output files"
 for f in out_files
 
     s = open(OUT_DIR * f) do file
@@ -56,7 +57,7 @@ for f in out_files
     println(f)
     for log in s_[2:end]
         g_ = split(log, '`')[2][1:end-4]*".out"
-        println("\t", g_)
+        # println("\t", g_)
         
         open(LOG_DIR * g_, "w") do logfile
             write(logfile, log)
@@ -64,11 +65,12 @@ for f in out_files
         
     end
     
-    println()
+    # println()
 end
 
 
 # Read results files and concatenate into single dataframe
+@info "Importing results"
 res_files = [f for f in readdir(RES_DIR) if f[end-3:end] == ".csv"]
 df = vcat(CSV.read.(RES_DIR .* res_files)...)
 
@@ -88,7 +90,7 @@ end
 #======================
     Process results
 ======================#
-
+@info "Computing aggregate metrics"
 # Compute average time per inner iteration
 df.t_inner_iter = df.time_mp_total ./ (df.num_iter_bar .+ df.num_iter_spx);
 
@@ -102,6 +104,7 @@ deletecols!(df, :dual_bound)
 # Aggregate results
 df_ = aggregate(df, [:T, :R, :solver], gmean1);
 
+@info "Exporting results"
 df_all = export_results_table(
     ["TLP", "MSK", "GRB", "CPX", "SCPX", "SGRB"],
     [
@@ -115,3 +118,5 @@ df_all = export_results_table(
     ""
 );
 CSV.write("$(CUR_DIR)/results.csv", df_all);
+
+@info "Done"
