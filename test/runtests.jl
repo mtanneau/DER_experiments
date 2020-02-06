@@ -1,21 +1,15 @@
-# For CI builds to run
-using Pkg
-if !haskey(Pkg.installed(), "Linda")
-    Pkg.clone("https://github.com/ds4dm/Linda.jl")
-end
-
 using LinearAlgebra
 using Random
 using Printf
 using Test
 
-using DemandResponse
+include(joinpath(@__DIR__, "../src/DemandResponse.jl"))
 const DR = DemandResponse
 
-import MathProgBase
-const MPB = MathProgBase
+import MathOptInterface
+const MOI = MathOptInterface
 
-import GLPKMathProgInterface: GLPKSolverMIP
+import GLPK
 import Linda
 
 # write your own tests here
@@ -24,7 +18,7 @@ const testdir = dirname(@__FILE__)
 const test_files = [
     # include test file name here (without .jl extension)
     "DER/DER",
-    "aggregator"
+    # "aggregator"
 ]
 
 for f in test_files

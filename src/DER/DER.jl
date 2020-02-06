@@ -4,10 +4,8 @@ using LinearAlgebra
 using Random
 using SparseArrays
 
-import MathProgBase
-const MPB = MathProgBase
-
-import Linda.Oracle: LindaOracleMIP
+import MathOptInterface
+const MOI = MathOptInterface
 
 """
     Resource
@@ -16,16 +14,9 @@ Abstract Class for Energy Resources.
 """
 abstract type Resource end
 
-"""
-    LindaOracleMIP
+function add_resource_to_model! end
 
-Create a MIP oracle from a Resource
-"""
-function LindaOracleMIP end
-
-
-function addmodel! end
-
+include("house.jl")
 
 include("fixedLoad.jl")
 include("curtailableLoad.jl")
@@ -33,6 +24,5 @@ include("deferrableLoad.jl")
 include("battery.jl")
 include("thermalLoad.jl")
 include("shiftableLoad.jl")
-include("house.jl")
 
 end  # module
