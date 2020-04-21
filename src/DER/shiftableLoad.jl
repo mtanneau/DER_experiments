@@ -92,7 +92,7 @@ function add_resource_to_model!(
                 ]; [
                     MOI.ScalarAffineTerm(-l.cycle_load[t - T0 - k + 2], ustart[k])
                     for k in 1:L
-                    if T0 <= t - k + 1 <= T1
+                    if (T0 <= t - k + 1 <= T1) && (1 <= t - T0 - k + 2 <= l.cycle_length)
                 ]
             ], 0.0),
             MOI.EqualTo(0.0)

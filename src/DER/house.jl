@@ -6,7 +6,6 @@ Data stucture that represents a house and its appliances.
 # Attributes
 - `index`: Index of that house
 - `num_timesteps`: Number of time-steps in the time horizon
-- `dt`: Duration of one time-step, in hours
 - `netload_min`: House's minimum net load, for each time-step
 - `netload_max`:
 - `price`: Electricity price, in dollar per kWh

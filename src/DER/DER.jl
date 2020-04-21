@@ -1,9 +1,5 @@
 module DER
 
-using LinearAlgebra
-using Random
-using SparseArrays
-
 import MathOptInterface
 const MOI = MathOptInterface
 
