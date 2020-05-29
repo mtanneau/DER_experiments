@@ -24,11 +24,11 @@ function update!(o::HHOracle, farkas::Bool, π::Vector{Float64}, σ::Float64)
 
     # Sanity checks
     T = o.h.num_timesteps
-    length(π) == 2*T || throw(DimensionMismatch("π has length $(length(π)) but should have length 2xT=$(2*T)."))
+    length(π) == T || throw(DimensionMismatch("π has length $(length(π)) but should have length 2xT=$(2*T)."))
     
     # Update shadow prices
     o.farkas = farkas
-    o.π .= π[1:T] .+ π[T+1:end]
+    o.π .= π
     o.σ  = σ
 
     # Update objective coefficients
@@ -73,7 +73,7 @@ function get_columns(o::HHOracle)
     col = Column(
         cost,
         o.h.index,
-        collect(1:2*T), [pnet; pnet],
+        collect(1:2*T), pnet,
         true
     )
 
