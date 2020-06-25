@@ -18,7 +18,7 @@ const testdir = dirname(@__FILE__)
 const test_files = [
     # include test file name here (without .jl extension)
     "DER/DER",
-    # "aggregator"
+    "colgen"
 ]
 
 for f in test_files
