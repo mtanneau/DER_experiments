@@ -307,6 +307,12 @@ version = "0.5.3"
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
+[[QPSReader]]
+deps = ["Logging"]
+git-tree-sha1 = "d6d5660ac4f59f3b7e5e3ac444e3272881ac9cfc"
+uuid = "10f199a5-22af-520b-b891-7ce84a7b1bd0"
+version = "0.1.1"
+
 [[REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets"]
 uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
