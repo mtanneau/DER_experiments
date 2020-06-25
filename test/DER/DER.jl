@@ -1,4 +1,4 @@
-import GLPKMathProgInterface: GLPKSolverMIP
+import GLPK
 
 @testset "DERs" begin
     include("fixedLoad.jl")
@@ -7,5 +7,4 @@ import GLPKMathProgInterface: GLPKSolverMIP
     include("shiftableLoad.jl")
     include("battery.jl")
     include("thermalLoad.jl")
-    include("house.jl")
 end

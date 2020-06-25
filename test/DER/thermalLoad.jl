@@ -1,125 +1,111 @@
-"""
-    test_thermalLoad()
-
-Run all unit tests for CurtailableLoad.
-"""
-function test_thermalLoad()
-
-    @testset "Thermal" begin
-        # Constructor
-        test_thermalLoad_constructor()
-
-        # Oracle
-        test_thermalLoad_oracle()
-
-    end
-    return nothing
-end
-
-"""
-    test_thermalLoad_constructor()
-
-Run unit tests on constructors for ThermalLoad.
-"""
-function test_thermalLoad_constructor()
-    @testset "Constructors" begin
-
-        # Constructor
-        @test try
-            DR.DER.ThermalLoad(
-                index=1, T=2, dt=1.0,
-                temp_min=[18.0, 18.0],
-                temp_max=[22.0, 22.0],
-                temp_ext=[0.0, 0.0],
-                temp_init=20.0,
-                pwr_min=[2.0, 2.0],
-                pwr_max=[10.0, 10.0],
-                C=1.0, η=1.0, μ=0.2,
-                binary_flag=true
-            )
-            true
-        catch err
-            false
-        end
-
-        @test try
-            # Should raise a DimensionMismatch exception
-            DR.DER.ThermalLoad(temp_min=[18.0])
-            DR.DER.ThermalLoad(temp_max=[18.0])
-            DR.DER.ThermalLoad(temp_ext=[18.0])
-            DR.DER.ThermalLoad(pwr_min=[18.0])
-            DR.DER.ThermalLoad(pwr_max=[18.0])
-            false
-        catch err
-            isa(err, DimensionMismatch)
-        end
-
-        @test try
-            # Should raise a DomainError
-            # `dt` must be positive
-            DR.DER.ThermalLoad(dt=0.0)
-            DR.DER.ThermalLoad(C=0.0)
-            false
-        catch err
-            isa(err, DomainError)
-        end
-
-    end
-    return nothing
-end
-
-"""
-    test_thermalLoad_oracle()
-
-Run unit tests on oracle instanciation for FixedLoad
-"""
-function test_thermalLoad_oracle()
+function test_thermalLoad_1()
 
     T = 2
 
-    @testset "Oracle" begin
-        l = DR.DER.ThermalLoad(
-            index=1, T=2, dt=1.0,
-            temp_min=[20.0, 20.0],
-            temp_max=[20.0, 20.0],
-            temp_ext=[0.0, 0.0],
-            temp_init=20.0,
-            pwr_min=[0.0, 0.0],
-            pwr_max=[10.0, 10.0],
-            C=1.0, η=1.0, μ=0.2,
-            binary_flag=false
-        )
-        mip_solver = GLPKSolverMIP()
+    # With these values, the heater uses 0.2 power to keep a ΔT of 1 
+    l = DR.DER.ThermalLoad(
+        index=1, T=2,
+        temp_min=[20.0, 20.0],
+        temp_max=[25.0, 25.0],
+        temp_ext=[0.0, 0.0],
+        temp_init=20.0,
+        pwr_min=[0.0, 0.0],
+        pwr_max=[10.0, 10.0],
+        C=1.0, η=1.0, μ=0.2,
+        binflag=false
+    )
 
-        # Instanciate oracle
-        o = Linda.Oracle.LindaOracleMIP(l, mip_solver)
-        
-        # Query oracle with zero shadow prices
-        Linda.Oracle.query!(o, zeros(2*T), 0.0)
-        @test Linda.Oracle.get_sp_dual_bound(o) ≈ 0.0
-        @test Linda.Oracle.get_num_new_columns(o) >= 1
-        col = Linda.Oracle.get_new_columns(o)[1]
-        @test col.col == [4.0, 4.0, 4.0, 4.0]
+    # GLPK does not support -in-Interval constraints, so we bridge
+    model = MOI.Bridges.full_bridge_optimizer(GLPK.Optimizer(), Float64)
 
-        # Query oracle with positive shadow prices
-        # (we're minimizing cost so consumption is maximized)
-        Linda.Oracle.query!(o, [ones(T); zeros(T)], 0.0)
-        # @test Linda.Oracle.get_sp_dual_bound(o) ≈ -sum(load)
-        @test Linda.Oracle.get_num_new_columns(o) >= 1
-        
+    lmin = [0.0, 0.0]
+    lmax = [10.0, 10.0]
+    price = [2.0, 1.0]
 
-        # Query oracle with negative shadow prices
-        # (we're minimizing cost so consumption is minimized)
-        Linda.Oracle.query!(o, [-ones(T); zeros(T)], 0.0)
-        # @test Linda.Oracle.get_sp_dual_bound(o) ≈ 0.0
-        @test Linda.Oracle.get_num_new_columns(o) >= 1
-        # col = Linda.Oracle.get_new_columns(o)[1]
-        # @test col.col == [zeros(T); zeros(T)]
+    # Instantiate initial model
+    h = DR.DER.House(
+        0, T,
+        lmin, lmax, price,
+        [l]
+    )
+    
+    model, var2idx, con2idx = DR.DER.build_model!(h, model)
 
-    end
+    MOI.optimize!(model)
+
+    @test MOI.get(model, MOI.ObjectiveValue()) ≈ 12.0
+
+    # Temperature should be kept at minimum value, i.e., 20
+    T1 = var2idx[(:thermal, l.index, :temp, 1)]
+    T2 = var2idx[(:thermal, l.index, :temp, 2)]
+    @test MOI.get(model, MOI.VariablePrimal(), T1) ≈ 20.0
+    @test MOI.get(model, MOI.VariablePrimal(), T2) ≈ 20.0
+
+    # Check net load
+    pnet1 = var2idx[(:thermal, l.index, :pnet, 1)]
+    pnet2 = var2idx[(:thermal, l.index, :pnet, 2)]
+    @test MOI.get(model, MOI.VariablePrimal(), pnet1) ≈ 4.0
+    @test MOI.get(model, MOI.VariablePrimal(), pnet2) ≈ 4.0
 
     return nothing
     
 end
 
-test_thermalLoad()
+function test_thermalLoad_2()
+
+    T = 2
+
+    # With these values, the heater uses 0.2 power to keep a ΔT of 1 
+    l = DR.DER.ThermalLoad(
+        index=1, T=2,
+        temp_min=[20.0, 20.0],
+        temp_max=[25.0, 25.0],
+        temp_ext=[0.0, 0.0],
+        temp_init=20.0,
+        pwr_min=[0.0, 0.0],
+        pwr_max=[10.0, 10.0],
+        C=1.0, η=1.0, μ=0.2,
+        binflag=false
+    )
+
+    # GLPK does not support -in-Interval constraints, so we bridge
+    model = MOI.Bridges.full_bridge_optimizer(GLPK.Optimizer(), Float64)
+
+    lmin = [0.0, 0.0]
+    lmax = [10.0, 10.0]
+    price = [1.0, 2.0]  # Now it's worth heating more in the first period
+
+    # Instantiate initial model
+    h = DR.DER.House(
+        0, T,
+        lmin, lmax, price,
+        [l]
+    )
+    
+    model, var2idx, con2idx = DR.DER.build_model!(h, model)
+
+    MOI.optimize!(model)
+
+    # T1 should be higher
+    # T2 should be at minimum, i.e., 20
+    T1 = var2idx[(:thermal, l.index, :temp, 1)]
+    T2 = var2idx[(:thermal, l.index, :temp, 2)]
+    @test MOI.get(model, MOI.VariablePrimal(), T1) ≈ 25.0
+    @test MOI.get(model, MOI.VariablePrimal(), T2) ≈ 20.0
+
+    # Check net load
+    pnet1 = var2idx[(:thermal, l.index, :pnet, 1)]
+    pnet2 = var2idx[(:thermal, l.index, :pnet, 2)]
+    @test MOI.get(model, MOI.VariablePrimal(), pnet1) ≈ 9.0
+    @test MOI.get(model, MOI.VariablePrimal(), pnet2) ≈ 0.0
+
+    # Check objective value
+    @test MOI.get(model, MOI.ObjectiveValue()) ≈ 9.0
+    return nothing
+    
+end
+
+@testset "Thermal" begin
+    test_thermalLoad_1()
+    test_thermalLoad_2()
+end

@@ -8,119 +8,62 @@ struct CurtailableLoad <: Resource
     num_timesteps::Int   # Number of time-steps in the battery's operation
 
     load::Vector{Float64}     # Load at each time-step, if device is on
-    binaryFlag::Bool  # Whether on-off or continuous curtailment
-end
+    binflag::Bool  # Whether on-off or continuous curtailment
 
-function CurtailableLoad(;
-    index::Integer=0,
-    T::Integer=0,
-    dt::Float64=1.0,
-    load::Vector{Float64}=Float64[],
-    binaryFlag::Bool=true
-)
-
-    # Dimension checks
-    T == size(load, 1) || throw(DimensionMismatch("Invalid load dimension"))
-    0.0 < dt || throw(DomainError("dt must be positive"))
-
-    CurtailableLoad(index, T, load, binaryFlag)
-end
-
-"""
-    LindaOracleMIP(l::CurtailableLoad, solver::AbstractMathProgSolver)
-
-Construct a MIP oracle that schedules the Battery.
-"""
-function LindaOracleMIP(l::CurtailableLoad, solver::MPB.AbstractMathProgSolver)
-    T = l.num_timesteps
-
-    var2idx = Dict{Tuple{Symbol, Int, Symbol, Int}, Int}()
-    row2idx = Dict{Tuple{Symbol, Int, Symbol, Int}, Int}()
-    obj = Vector{Float64}(undef, 0)
-    varlb = Vector{Float64}(undef, 0)
-    varub = Vector{Float64}(undef, 0)
-    vartypes = Vector{Symbol}(undef, 0)
-    rowlb = Vector{Float64}(undef, 0)
-    rowub = Vector{Float64}(undef, 0)
-    constrI = Vector{Int}(undef, 0)
-    constrJ = Vector{Int}(undef, 0)
-    constrV = Vector{Float64}(undef, 0)
-
-    # Update model
-    addmodel!(l,
-        var2idx, obj, varlb, varub, vartypes,
-        row2idx, rowlb, rowub, constrI, constrJ, constrV,
-        Vector{Int}(undef, 0)
+    function CurtailableLoad(;
+        index::Integer=0,
+        T::Integer=0,
+        load::Vector{Float64}=Float64[],
+        binflag::Bool=true
     )
-
-    numvar = length(var2idx)
-    numcon = length(row2idx)
-
-    A_link = spzeros(2*T, numvar)
-    for t in 1:T
-        A_link[t, var2idx[(:curt, l.index, :pnet, t)]] = 1.0
-        A_link[T+t, var2idx[(:curt, l.index, :pnet, t)]] = 1.0
+        # Dimension checks
+        T == size(load, 1) || throw(DimensionMismatch("Invalid load dimension"))
+        return new(index, T, load, binflag)
     end
 
-    return LindaOracleMIP(
-        l.index,
-        obj,
-        A_link,
-        sparse(constrI, constrJ, constrV, numcon, numvar),
-        rowlb,
-        rowub,
-        vartypes,
-        varlb,
-        varub,
-        solver
-    )
 end
 
-
-function addmodel!(
+function add_resource_to_model!(
+    m::MOI.ModelLike,
+    h::House,
     l::CurtailableLoad,
-    var2idx, obj, varlb, varub, vartypes,
-    row2idx, rowlb, rowub, constrI, constrJ, constrV,
-    constr_
+    var2idx, con2idx
 )
     T = l.num_timesteps
-    T_ = length(constr_)
-    (T_ == 0) || (T_ == T) || error("T=$T but $T_ linking constraints in input")
 
-    
     # ==========================================
     #    I. Add local variables
     # ==========================================
-    # Net load
+    pnet = MOI.add_variables(m, T)  # Net load
+    curt = MOI.add_variables(m, T)  # Curtailment indicator
+    # Update list of variable indices
     for t in 1:T
-        var2idx[(:curt, l.index, :pnet, t)] = length(var2idx)+1
-    end
-    append!(obj, zeros(T))
-    append!(varlb, fill(-Inf, T))
-    append!(varub, fill(Inf, T))
-    append!(vartypes, fill(:Cont, T))
-
-    # Curtailment indicator
-    for t in 1:T
-        var2idx[(:curt, l.index, :uind, t)] = length(var2idx)+1
-    end
-    append!(obj, zeros(T))
-    append!(varlb, zeros(T))
-    append!(varub, ones(T))
-    if l.binaryFlag
-        append!(vartypes, fill(:Bin, T))
-    else
-        append!(vartypes, fill(:Cont, T))
+        var2idx[(:curt, l.index, :pnet, t)] = pnet[t]
+        var2idx[(:curt, l.index, :uind, t)] = curt[t]
     end
 
+    for t in 1:T
+        if l.binflag
+            # Add binary constraint
+            MOI.add_constraint(m,
+                MOI.SingleVariable(curt[t]),
+                MOI.ZeroOne()
+            )
+        else
+            # Just add bounds
+            MOI.add_constraint(m,
+                MOI.SingleVariable(curt[t]),
+                MOI.Interval(0.0, 1.0)
+            )
+        end
+    end
 
     # ==========================================
     #    II. Update linking constraints
     # ==========================================
-    if T_ > 0
-        append!(constrI, constr_)
-        append!(constrJ, [var2idx[(:curt, l.index, :pnet, t)] for t in 1:T])
-        append!(constrV, -ones(T))
+    for t in 1:T
+        cidx = con2idx[(:house, h.index, :link, t)]
+        MOI.modify(m, cidx, MOI.ScalarCoefficientChange(pnet[t], -1.0))
     end
 
     # ==========================================
@@ -129,21 +72,19 @@ function addmodel!(
     # Curtailement
     #   p[t] - u[t] * P[t] = 0
     for t in 1:T
-        row2idx[(:curt, l.index, :curtail, t)] = length(row2idx) + 1
-        i = row2idx[(:curt, l.index, :curtail, t)]
-        append!(constrI, [i, i])
-        append!(constrJ, 
-            [
-                var2idx[(:curt, l.index, :pnet, t)],
-                var2idx[(:curt, l.index, :uind, t)]
-            ]
+        cidx = MOI.add_constraint(m,
+            MOI.ScalarAffineFunction{Float64}(
+                [
+                    MOI.ScalarAffineTerm(1.0, pnet[t]),
+                    MOI.ScalarAffineTerm(-l.load[t], curt[t])
+                ],
+                0.0
+            ),
+            MOI.EqualTo(0.0)
         )
-        append!(constrV, [1.0, -l.load[t]])
+        con2idx[(:curt, l.index, :curtail, t)] = cidx
     end
-    append!(rowlb, zeros(T))
-    append!(rowub, zeros(T))
     
-
     # ==========================================
     #    IV. Add sub-resources to current model
     # ==========================================
